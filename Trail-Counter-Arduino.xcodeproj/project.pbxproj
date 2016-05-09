@@ -409,6 +409,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		812DB1951CE07377004470D2 /* Trail-Counter-Arduino */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "Trail-Counter-Arduino"; sourceTree = "<group>"; };
 		814E2AE51CDB9D98007461F4 /* Index */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Index; sourceTree = BUILT_PRODUCTS_DIR; };
 		814E2AE81CDB9D98007461F4 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		814E2AEA1CDB9D98007461F4 /* Makefile */ = {isa = PBXFileReference; explicitFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
@@ -940,6 +941,7 @@
 		814E2AD91CDB9D98007461F4 = {
 			isa = PBXGroup;
 			children = (
+				812DB1951CE07377004470D2 /* Trail-Counter-Arduino */,
 				814E2AE71CDB9D98007461F4 /* Trail-Counter-Arduino */,
 				814E2AE61CDB9D98007461F4 /* Products */,
 			);
