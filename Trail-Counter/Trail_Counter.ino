@@ -144,7 +144,6 @@ unsigned long toUnixTime(DateTime ut); //Converts to Unix time for storage
 void toArduinoTime(unsigned long unixT); //Converts to Arduino Time for use with the RTC and program
 
 
-
 // Define variables and constants
 // Pin Value Variables
 const int TalkPin = A0;  // This is the open-drain line for signaling i2c mastery
@@ -168,9 +167,9 @@ byte currentDailyPeriod;     // We will keep daily counts as well as period coun
 
 // Accelerometer
 const byte accelFullScaleRange = 2;  // Sets full-scale range to +/-2, 4, or 8g. Used to calc real g values.
-const byte dataRate = 5;  // output data rate - 0=800Hz, 1=400, 2=200, 3=100, 4=50, 5=12.5, 6=6.25, 7=1.56
+const byte dataRate = 5;             // output data rate - 0=800Hz, 1=400, 2=200, 3=100, 4=50, 5=12.5, 6=6.25, 7=1.56
 byte accelInputValue = 1;            // Raw sensitivity input (0-9);
-byte accelSensitivity;       // Hex variable for sensitivity
+byte accelSensitivity;               // Hex variable for sensitivity
 byte accelThreshold = 100;           // accelThreshold value to decide when the detected sound is a knock or not
 unsigned int debounce;               // This is a minimum debounce value - additional debounce set using pot or remote terminal
 volatile byte source;
@@ -195,12 +194,12 @@ void setup()
     pinMode(REDLED, OUTPUT);              // declare the Red LED Pin as an output
     pinMode(YELLOWLED, OUTPUT);           // declare the Yellow LED Pin as as OUTPUT
     pinMode(LEDPWR, OUTPUT);            // declare the Bluetooth Dongle Power pin as as OUTPUT
-    digitalWrite(LEDPWR, LOW);     // Turn on the power to the LEDs
+    digitalWrite(LEDPWR, LOW);          // Turn on the power to the LEDs
     
-    batteryMonitor.reset();               // Initialize the battery
+    batteryMonitor.reset();               // Initialize the battery monitor
     batteryMonitor.quickStart();
     
-    if (! rtc.begin()) {
+    if (! rtc.begin()) {                    // Not sure if this is working
         Serial.println("Couldn't find RTC");
         BlinkForever();
     }
@@ -433,7 +432,7 @@ void loop()
 }
 
 
-void CheckForBump()
+void CheckForBump() // This is where we check to see if an interrupt is set when not asleep
 {
     if (digitalRead(INT2PIN)==0)    // If int2 goes HIGH, either p/l has changed or there's been a single/double tap
     {
@@ -509,7 +508,7 @@ void LogDailyEvent(DateTime LogTime) // Log Daily Event()
     fram.write8(DAILYPOINTERADDR,newDailyPointerAddr);
 }
 
-// Function to set the date and time from the terminal window
+
 int SetTimeDate() {
     Serial.println(F("Enter Seconds (0-59): "));
     while (Serial.available() == 0) {  // Look for char in serial queue and process if found
@@ -545,9 +544,9 @@ int SetTimeDate() {
     // January 21, 2014 at 3am you would call:
     // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
     
-}
+}   // Function to set the date and time from the terminal window
 
-void PrintTimeDate()
+void PrintTimeDate()  // Prints time and date to the console
 {
     DateTime now = rtc.now();
     Serial.print(now.year(), DEC);
@@ -566,12 +565,12 @@ void PrintTimeDate()
     Serial.println();
 }
 
-// Initialize the MMA8452 registers
-// See the many application notes for more info on setting all of these registers:
-// http://www.freescale.com/webapp/sps/site/prod_summary.jsp?code=MMA8452Q
-// Feel free to modify any values, these are settings that work well for me.
-void initMMA8452(byte fsr, byte dataRate)
+
+void initMMA8452(byte fsr, byte dataRate)   // Initialize the MMA8452 registers
 {
+    // See the many application notes for more info on setting all of these registers:
+    // http://www.freescale.com/webapp/sps/site/prod_summary.jsp?code=MMA8452Q
+    // Feel free to modify any values, these are settings that work well for me.
     MMA8452Standby();  // Must be in standby to change registers
     
     // Set up the full scale range to 2, 4, or 8g.
@@ -610,25 +609,22 @@ void initMMA8452(byte fsr, byte dataRate)
     MMA8452Active();  // Set to active to start reading
 }
 
-// Sets the MMA8452 to standby mode.
-// It must be in standby to change most register settings
-void MMA8452Standby()
+
+void MMA8452Standby()   // Sets the MMA8452 to standby mode while we make register changes
 {
     byte c = readRegister(0x2A);
     writeRegister(0x2A, c & ~(0x01));
 }
 
-// Sets the MMA8452 to active mode.
-// Needs to be in this mode to output data
-void MMA8452Active()
+
+void MMA8452Active()    // Sets the MMA8452 to active mode - once changes made
 {
     byte c = readRegister(0x2A);
     writeRegister(0x2A, c | 0x01);
 }
 
 
-// Read a single byte from address and return it as a byte
-byte readRegister(uint8_t address)
+byte readRegister(uint8_t address)  // Read a single byte from address and return it as a byte
 {
     byte data;
     
@@ -658,8 +654,8 @@ byte readRegister(uint8_t address)
     return data;
 }
 
-// Writes a single byte (data) into address
-void writeRegister(unsigned char address, unsigned char data)
+
+void writeRegister(unsigned char address, unsigned char data)   // Writes a single byte (data) into address
 {
     i2cSendStart();
     i2cWaitForComplete();
@@ -748,7 +744,7 @@ void sleepNow()         // here we put the arduino to sleep
 }
 
 
-unsigned long toUnixTime(DateTime ut)
+unsigned long toUnixTime(DateTime ut)   // For efficiently storing time in memory
 {
     TimeElements timeElement;
     timeElement.Month = ut.month();
@@ -760,7 +756,7 @@ unsigned long toUnixTime(DateTime ut)
     return makeTime(timeElement);
 }
 
-void toArduinoTime(unsigned long unixT)
+void toArduinoTime(unsigned long unixT) // Puts time in format for reporting
 {
     TimeElements timeElement;
     breakTime(unixT, timeElement);
@@ -779,7 +775,7 @@ void toArduinoTime(unsigned long unixT)
     Serial.print(timeElement.Second);
 }
 
-void BlinkForever()
+void BlinkForever() // When something goes badly wrong...
 {
     Serial.println(F("Error - Reboot"));
     while(1) {
@@ -790,7 +786,7 @@ void BlinkForever()
     }
 }
 
-boolean TakeTheBus()
+boolean TakeTheBus()    // Claim the shared i2c bus
 {
     int timeout = 10000;  // We will wait ten seconds then give up
     unsigned long startListening = millis();
@@ -804,7 +800,7 @@ boolean TakeTheBus()
     return 1;           // We have it
 }
 
-boolean GiveUpTheBus()
+boolean GiveUpTheBus()  // Give up the shared i2c bus
 {
     pinMode(TalkPin,INPUT);  // Start listening again
     //Serial.println("Simblee gave up the Bus");
@@ -812,7 +808,7 @@ boolean GiveUpTheBus()
 }
 
 
-uint8_t FRAMread8(unsigned int address)
+uint8_t FRAMread8(unsigned int address) // Read 8 bits from FRAM
 {
     uint8_t result;
     if (TakeTheBus()) {  // Request exclusive access to the bus
@@ -822,7 +818,7 @@ uint8_t FRAMread8(unsigned int address)
     return result;
 }
 
-void FRAMwrite8(unsigned int address, uint8_t value)
+void FRAMwrite8(unsigned int address, uint8_t value)    // Write 8 bits to FRAM
 {
     uint8_t result;
     if (TakeTheBus()) {  // Request exclusive access to the bus
@@ -832,10 +828,11 @@ void FRAMwrite8(unsigned int address, uint8_t value)
 }
 
 
-//This function will write a 2 byte (16bit) long to the eeprom at
-//the specified address to address + 1.
-void FRAMwrite16(unsigned int address, int value)
+
+void FRAMwrite16(unsigned int address, int value)   // Write 16 bits to FRAM
 {
+    //This function will write a 2 byte (16bit) long to the eeprom at
+    //the specified address to address + 1.
     //Decomposition from a long to 2 bytes by using bitshift.
     //One = Most significant -> Four = Least significant byte
     byte two = (value & 0xFF);
@@ -849,7 +846,7 @@ void FRAMwrite16(unsigned int address, int value)
     GiveUpTheBus();// Release exclusive access to the bus
 }
 
-int FRAMread16(unsigned int address)
+int FRAMread16(unsigned int address)    // Read 16 bits from FRAM
 {
     long two;
     long one;
@@ -863,10 +860,11 @@ int FRAMread16(unsigned int address)
     return ((two << 0) & 0xFF) + ((one << 8) & 0xFFFF);
 }
 
-//This function will write a 4 byte (32bit) long to the eeprom at
-//the specified address to address + 3.
-void FRAMwrite32(int address, unsigned long value)
+
+void FRAMwrite32(int address, unsigned long value)  // Write 16 bits to FRAM
 {
+    //This function will write a 4 byte (32bit) long to the eeprom at
+    //the specified address to address + 3.
     //Decomposition from a long to 4 bytes by using bitshift.
     //One = Most significant -> Four = Least significant byte
     
@@ -885,7 +883,7 @@ void FRAMwrite32(int address, unsigned long value)
     GiveUpTheBus();// Release exclusive access to the bus
 }
 
-unsigned long FRAMread32(unsigned long address)
+unsigned long FRAMread32(unsigned long address) // Read 32 bits from FRAM
 {
     long four;
     long three;
@@ -904,9 +902,9 @@ unsigned long FRAMread32(unsigned long address)
 }
 
 
-// Note - have to hard code the size here due to this issue - http://www.microchip.com/forums/m501193.aspx
 void ResetFRAM()  // This will reset the FRAM - set the version and preserve delay and sensitivity
 {
+    // Note - have to hard code the size here due to this issue - http://www.microchip.com/forums/m501193.aspx
     Serial.println("Resetting Memory");
     for (unsigned long i=3; i < 32768; i++) {  // Start at 3 to not overwrite debounce and sensitivity
         fram.write8(i,0x0);
