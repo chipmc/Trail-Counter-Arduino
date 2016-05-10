@@ -26,7 +26,7 @@
 #	LiquidCrystal Robot_Control Robot_Motor RobotIRremote SD Servo 
 #	SpacebrewYun Stepper Temboo TFT WiFi 
 #
-APP_LIBS_LIST = 0
+APP_LIBS_LIST = Wire
 
 # List user's libraries here 
 # default = 0 = none
@@ -42,12 +42,12 @@ APP_LIBS_LIST = 0
 #	RunningAverage SdFat Servo SFE_CC3000 SFE_MicroOLED SoftI2CMaster 
 #	SPIFlash Temboo Time TinyWireM Twitter U8glib Ubidots 
 #
-USER_LIBS_LIST = 0
+USER_LIBS_LIST = MAX17043 RTClib Adafruit_FRAM_I2C Time
 
 # List local libraries here
 # default = empty = all
 #
-LOCAL_LIBS_LIST =
+LOCAL_LIBS_LIST = i2c
 
 # List core, application and user's libraries to be excluded
 # For example, WiFi may crash on Arduino 1.0.2, Esplora on Arduino 1.0.3, Firmata on Teensy 3.0,
@@ -125,7 +125,7 @@ NO_SERIAL_CONSOLE =
 # BOARD_PORT is optional
 # If not defined, BOARD_PORT = /dev/tty.usb* (default)
 #
-#BOARD_PORT = /dev/tty.usbmodem*
+BOARD_PORT = /dev/cu.usbmodem*
 
 # Xcode takes SKETCHBOOK_DIR from preferences.txt
 # If not defined, each IDE has its own SKETCHBOOK_DIR (default)
@@ -155,6 +155,7 @@ MAKEFILE_PATH  = $(CURRENT_DIR)/Makefiles
 UTILITIES_PATH = $(CURRENT_DIR)/Utilities
 
 include $(MAKEFILE_PATH)/Step1.mk
+
 
 
 
