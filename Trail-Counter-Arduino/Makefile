@@ -21,10 +21,26 @@
 # List application Arduino/chipKIT/Digispark/Energia/Maple/Microduino/Teensy/Wiring libraries here
 # default = 0 = none
 #
+# ARDUINO : AVR = EEPROM HID SoftwareSerial SPI Wire 
+# ARDUINO = Bridge Esplora Ethernet Firmata GSM 
+#	LiquidCrystal Robot_Control Robot_Motor RobotIRremote SD Servo 
+#	SpacebrewYun Stepper Temboo TFT WiFi 
+#
 APP_LIBS_LIST = 0
 
 # List user's libraries here 
 # default = 0 = none
+#
+# USER = Adafruit_ADS1X15 Adafruit_AM2315 Adafruit_BLE_UART 
+#	Adafruit_BLEFirmata Adafruit_BluefruitLE_nRF51 Adafruit_CC3000 
+#	Adafruit_DotStar Adafruit_FONA_OLD Adafruit_FONA_Teensy 
+#	Adafruit_FRAM_I2C Adafruit_GFX_Library Adafruit_GPS Adafruit_INA219 
+#	Adafruit_MAX31855 Adafruit_NeoPixel Adafruit_SSD1306 APA102 Bridge DHT 
+#	DS1307RTC DS3234 DSRTCLib Ethernet FastLED Firmata fxos8700cq GPS 
+#	HIH61XX HIH61XXCommander i2c_t3 Keyboard LGPRS LSM303 MAX17043 
+#	MicroView Mouse NewPing Phant RadioHead RFM69 RTClib 
+#	RunningAverage SdFat Servo SFE_CC3000 SFE_MicroOLED SoftI2CMaster 
+#	SPIFlash Temboo Time TinyWireM Twitter U8glib Ubidots 
 #
 USER_LIBS_LIST = 0
 
@@ -120,7 +136,7 @@ NO_SERIAL_CONSOLE =
 # SERIAL_BAUDRATE for the serial console, 9600 by default
 # Uncomment and specify another speed
 #
-#SERIAL_BAUDRATE = 115200
+#SERIAL_BAUDRATE = 9600
 
 
 # Miscellaneous
@@ -139,4 +155,6 @@ MAKEFILE_PATH  = $(CURRENT_DIR)/Makefiles
 UTILITIES_PATH = $(CURRENT_DIR)/Utilities
 
 include $(MAKEFILE_PATH)/Step1.mk
+
+
 
