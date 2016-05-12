@@ -66,7 +66,7 @@ LOCAL_LIBS_LIST = i2c
 # WARNING_OPTIONS = all no-missing-braces no-conversion-null no-pointer-arith
 # WARNING_OPTIONS = unused-variable unused-function unused-label unused-value no-conversion-null no-pointer-arith
 #
-WARNING_OPTIONS = 0
+WARNING_OPTIONS = unused-variable unused-function unused-label unused-value
 
 
 # Applications path folder
@@ -125,7 +125,7 @@ NO_SERIAL_CONSOLE =
 # BOARD_PORT is optional
 # If not defined, BOARD_PORT = /dev/tty.usb* (default)
 #
-BOARD_PORT = /dev/cu.usbmodem*
+BOARD_PORT = /dev/cu.usbserial*
 
 # Xcode takes SKETCHBOOK_DIR from preferences.txt
 # If not defined, each IDE has its own SKETCHBOOK_DIR (default)
@@ -155,6 +155,14 @@ MAKEFILE_PATH  = $(CURRENT_DIR)/Makefiles
 UTILITIES_PATH = $(CURRENT_DIR)/Utilities
 
 include $(MAKEFILE_PATH)/Step1.mk
+
+
+
+
+
+
+
+
 
 
 

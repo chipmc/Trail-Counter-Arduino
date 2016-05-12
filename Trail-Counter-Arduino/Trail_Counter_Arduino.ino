@@ -493,6 +493,8 @@ void CheckForBump() // This is where we check to see if an interrupt is set when
                 FRAMwrite16(CURRENTHOURLYCOUNTADDR, hourlyPersonCount);  // Load Hourly Count to memory
                 dailyPersonCount++;                    // Increment the PersonCount
                 FRAMwrite16(CURRENTDAILYCOUNTADDR, dailyPersonCount);   // Load Daily Count to memory
+                unsigned long unixTime = toUnixTime(t);  // Convert to UNIX Time
+                FRAMwrite32(CURRENTCOUNTSTIME, unixTime);   // Write to FRAM - this is so we know when the last counts were saved
                 lastBump = millis();              // Reset last bump timer
                 Serial.print(F("Hourly: "));
                 Serial.print(hourlyPersonCount);
@@ -847,7 +849,6 @@ uint8_t FRAMread8(unsigned int address) // Read 8 bits from FRAM
 
 void FRAMwrite8(unsigned int address, uint8_t value)    // Write 8 bits to FRAM
 {
-    uint8_t result;
     if (TakeTheBus()) {  // Request exclusive access to the bus
         fram.write8(address,value);
     }
