@@ -52,23 +52,31 @@ VARIANT_OBJ_FILES = $(VARIANT_CPP_SRCS:.cpp=.cpp.o)
 VARIANT_OBJS      = $(patsubst $(APPLICATION_PATH)/%,$(OBJDIR)/%,$(VARIANT_OBJ_FILES))
 
 
-# Uploader openocd or avrdude
+# Uploader openocd or avrdude or ssh
 # UPLOADER defined in .xcconfig
 #
-ifeq ($(UPLOADER),avrdude)
-    UPLOADER         = avrdude
-    USB_RESET        = python $(UTILITIES_PATH)/reset_1200.py
-    AVRDUDE_COM_OPTS = -p$(AVRDUDE_MCU) -C$(AVRDUDE_CONF)
-    AVRDUDE_OPTS     = -c$(AVRDUDE_PROGRAMMER) -b$(AVRDUDE_BAUDRATE)
-    M0_SERIAL_PORT   = /dev/tty.usbmodem0041
-    COMMAND_UPLOAD   = $(AVRDUDE_EXEC) $(AVRDUDE_COM_OPTS) $(AVRDUDE_OPTS) -P$(M0_SERIAL_PORT) -Uflash:w:$(TARGET_HEX):i
+ifeq ($(BOARD_PORT),ssh)
+    UPLOADER         = ssh
 else
-    UPLOADER         = openocd
-    UPLOADER_PATH    = $(OTHER_TOOLS_PATH)/OpenOCD-0.9.0-arduino
-    UPLOADER_EXEC    = $(UPLOADER_PATH)/bin/openocd
-    UPLOADER_OPTS    = -s $(UPLOADER_PATH)/share/openocd/scripts/
-	UPLOADER_OPTS   += -f $(VARIANT_PATH)/$(call PARSE_BOARD,$(BOARD_TAG),build.openocdscript)
-	UPLOADER_COMMAND = verify reset $(call PARSE_BOARD,$(BOARD_TAG),build.section.start) exit
+    ifeq ($(UPLOADER),avrdude)
+        UPLOADER         = avrdude
+        USB_RESET        = python $(UTILITIES_PATH)/reset_1200.py
+        AVRDUDE_COM_OPTS = -p$(AVRDUDE_MCU) -C$(AVRDUDE_CONF)
+        AVRDUDE_OPTS     = -c$(AVRDUDE_PROGRAMMER) -b$(AVRDUDE_BAUDRATE)
+
+# Regression test for M0 Pro (Native USB Port) / AVRdude
+        ifeq ($(BOARD_TAG),mzero_pro_bl)
+            M0_SERIAL_PORT   = /dev/tty.usbmodem0041
+            COMMAND_UPLOAD   = $(AVRDUDE_EXEC) $(AVRDUDE_COM_OPTS) $(AVRDUDE_OPTS) -P$(M0_SERIAL_PORT) -Uflash:w:$(TARGET_HEX):i
+        endif
+    else
+        UPLOADER         = openocd
+        UPLOADER_PATH    = $(OTHER_TOOLS_PATH)/OpenOCD-0.9.0-arduino
+        UPLOADER_EXEC    = $(UPLOADER_PATH)/bin/openocd
+        UPLOADER_OPTS    = -s $(UPLOADER_PATH)/share/openocd/scripts/
+        UPLOADER_OPTS   += -f $(VARIANT_PATH)/$(call PARSE_BOARD,$(BOARD_TAG),build.openocdscript)
+        UPLOADER_COMMAND = verify reset $(call PARSE_BOARD,$(BOARD_TAG),build.section.start) exit
+    endif
 endif
 
 # Sketchbook/Libraries path
@@ -212,10 +220,12 @@ ASFLAGS      = -x assembler-with-cpp
 LDFLAGS      = $(OPTIMISATION) $(WARNING_FLAGS) -save-temps
 LDFLAGS     += -$(MCU_FLAG_NAME)=$(MCU) --specs=nano.specs
 LDFLAGS     += -T $(VARIANT_PATH)/$(LDSCRIPT) -mthumb
-LDFLAGS     += -Wl,--cref -Wl,--check-sections -Wl,--gc-sections -Wl,--entry=Reset_Handler
+LDFLAGS     += -Wl,--cref -Wl,-Map,Builds/embeddedcomputing.map # Output a cross reference table.
+LDFLAGS     += -Wl,--check-sections -Wl,--gc-sections -Wl,--entry=Reset_Handler
 LDFLAGS     += -Wl,--unresolved-symbols=report-all
 LDFLAGS     += -Wl,--warn-common -Wl,--warn-section-align -Wl,--warn-unresolved-symbols
 LDFLAGS     += -Wl,--section-start=.text=$(call PARSE_BOARD,$(BOARD_TAG),build.section.start)
+LDFLAGS     += -Wl,--start-group -lm -lgcc -Wl,--end-group
 
 # Specific OBJCOPYFLAGS for objcopy only
 # objcopy uses OBJCOPYFLAGS only

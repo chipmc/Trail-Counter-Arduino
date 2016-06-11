@@ -1126,7 +1126,8 @@ else
 
 		-stty -f $(AVRDUDE_PORT) 1200
 #		$(USB_RESET) $(USED_SERIAL_PORT)
-		@sleep 2
+		@sleep 1
+#		@ls $(USED_SERIAL_PORT)
 # ~
     endif
 # ~~
@@ -1176,7 +1177,8 @@ else ifeq ($(BOARD_PORT),pgm)
 
 else ifeq ($(BOARD_PORT),ssh)
 
-	$(eval BOARD_FILE = $(shell grep -rl $(CURRENT_DIR)/Configurations -e '$(BOARD_TAG) \| ssh'))
+#	$(eval BOARD_FILE = $(shell grep -rl $(CURRENT_DIR)/Configurations -e '$(BOARD_TAG) \| ssh'))
+	$(eval BOARD_FILE = $(shell grep -rl $(CURRENT_DIR)/Configurations -e '$(BOARD_TAG)_ssh'))
 
     ifeq ($(SSH_ADDRESS),)
 		$(eval SSH_ADDRESS = $(shell grep ^SSH_ADDRESS '$(BOARD_FILE)' | cut -d= -f 2- | sed 's/^ //'))
@@ -1196,8 +1198,7 @@ else ifeq ($(BOARD_PORT),ssh)
 		exit 2
     endif
 
-
-    ifeq ($(BOARD_TAG),yun)
+    ifneq ($(filter $(BOARD_TAG),yun tian),)
 		$(call SHOW,"10.2-UPLOAD",$(UPLOADER))
 
 		@echo "Uploading 1/3"
@@ -1649,5 +1650,6 @@ end_fast:
 # ~~
 
 .PHONY:	all clean depends upload raw_upload reset serial show_boards headers size document
+
 
 

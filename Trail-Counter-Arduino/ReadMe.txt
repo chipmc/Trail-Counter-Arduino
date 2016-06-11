@@ -47,7 +47,7 @@ The first word is for system data
 2        Delay
 3        Daily Count Pointer
 4-5      Current Hourly Count Pointer (16-bit number)
-6        Reserved
+6        Control Register  (8 - 6 Reserved, 5-Erase Memory, 4-Reset Current Count, 3-Start / Stop Test, 2-Set Sensitivity, 1-Set Delay)
 7        Reserved
 The second word is for storing the current count data
 8-9      Current Hourly Count (16-bit)

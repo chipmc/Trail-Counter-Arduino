@@ -99,6 +99,8 @@
 #define DEBOUNCEADDR 0x2
 #define DAILYPOINTERADDR 0x3
 #define HOURLYPOINTERADDR 0x4
+#define CONTROLREGISTER 0x6     // This is the control register acted on by both Simblee and Arduino
+
 //Second Word - 8 bytes for storing current counts
 #define CURRENTHOURLYCOUNTADDR 0x8
 #define CURRENTDAILYCOUNTADDR 0xA
@@ -155,6 +157,7 @@ void enable32Khz(uint8_t enable);  // Need to turn on the 32k square wave for bu
 
 
 // Prototypes for General Functions
+void StartStopTest(boolean startTest); // Since the test can be started from the serial menu or the Simblee - created a function
 void BlinkForever(); // Ends execution
 void LogHourlyEvent(DateTime LogTime); // Log Hourly Event()
 void LogDailyEvent(DateTime LogTime); // Log Daily Event()
@@ -189,6 +192,16 @@ unsigned int hourlyPersonCount = 0;  // hourly counter
 unsigned int dailyPersonCount = 0;   //  daily counter
 byte currentHourlyPeriod;    // This is where we will know if the period changed
 byte currentDailyPeriod;     // We will keep daily counts as well as period counts
+
+// Variables for the control byte
+// Control Register  (8 - 4 Reserved, 3-Start / Stop Test, 2-Set Sensitivity, 1-Set Delay)
+byte signalDelayChange = B00000001;
+byte signalSentitivityChange = B00000010;
+byte testStart = B00000100;
+byte testStop = B11111011;
+byte controlRegisterValue;
+unsigned long lastCheckedControlRegister;
+int controlRegisterDelay = 1000;
 
 
 // Accelerometer
@@ -375,39 +388,12 @@ void loop()
                 break;
             case '7':  // Start or stop the test
                 if (inTest == 0) {
-                    inTest = 1;
-                    t = rtc.now();                    // Gets the current time
-                    currentHourlyPeriod = HOURLYPERIOD;   // Sets the hour period for when the count starts (see #defines)
-                    currentDailyPeriod = DAILYPERIOD;     // And the day  (see #defines)
-                    // Deterimine when the last counts were taken check when starting test to determine if we reload values or start counts over
-                    unsigned long unixTime = FRAMread32(CURRENTCOUNTSTIME);
-                    TimeElements timeElement;
-                    breakTime(unixTime, timeElement);
-                    lastHour = int(timeElement.Hour);
-                    lastDate = int(timeElement.Day);
-                    if (currentDailyPeriod == lastDate) {
-                        Serial.println("Restoring Counts");
-                        dailyPersonCount = FRAMread16(CURRENTDAILYCOUNTADDR);  // Load Daily Count from memory
-                        if (currentHourlyPeriod == lastHour) {
-                            hourlyPersonCount = FRAMread16(CURRENTHOURLYCOUNTADDR);  // Load Hourly Count from memory
-                        }
-                    }
-                    source = readRegister(0x22);     // Reads the PULSE_SRC register to reset it
-                    attachInterrupt(1, WakeUpNow, LOW);   // use interrupt 1 (pin 3) and run wakeUpNow when pin 3 goes LOW
-                    Serial.println(F("Test Started"));
+                    FRAMwrite8(CONTROLREGISTER,testStart |= controlRegisterValue);
+                    StartStopTest(1);
                 }
                 else {
-                    inTest = 0;
-                    source = readRegister(0x22);  // Reads the PULSE_SRC register to reset it
-                    detachInterrupt(1);           // disables interrupt 1 on pin 3 so the program can execute
-                    t = rtc.now();            // Gets the current time
-                    FRAMwrite16(CURRENTDAILYCOUNTADDR, dailyPersonCount);   // Load Daily Count to memory
-                    FRAMwrite16(CURRENTHOURLYCOUNTADDR, hourlyPersonCount);  // Load Hourly Count to memory
-                    unsigned long unixTime = toUnixTime(t);  // Convert to UNIX Time
-                    FRAMwrite32(CURRENTCOUNTSTIME, unixTime);   // Write to FRAM - this is so we know when the last counts were saved
-                    hourlyPersonCount = 0;        // Reset Person Count
-                    dailyPersonCount = 0;         // Reset Person Count
-                    Serial.println(F("Test Stopped"));
+                    FRAMwrite8(CONTROLREGISTER,testStop &= controlRegisterValue);
+                    StartStopTest(0);
                     refreshMenu = 1;
                 }
                 break;
@@ -453,6 +439,16 @@ void loop()
             Serial.println(F("Serial: Entering Sleep mode"));
             delay(100);     // this delay is needed, the sleep function will provoke a Serial error otherwise!!
             sleepNow();     // sleep function called here
+        }
+    }
+    if (millis() >= lastCheckedControlRegister + controlRegisterDelay) {
+        controlRegisterValue = FRAMread8(CONTROLREGISTER);
+        lastCheckedControlRegister = millis();
+        if ((controlRegisterValue & testStart) >> 2) {
+            if (!inTest) StartStopTest(1);
+        }
+        else {
+            if (inTest) StartStopTest(0);
         }
     }
 }
@@ -510,6 +506,44 @@ void CheckForBump() // This is where we check to see if an interrupt is set when
     }
 }
 
+void StartStopTest(boolean startTest)  // Since the test can be started from the serial menu or the Simblee - created a function
+{
+    if (startTest) {
+        inTest = 1;
+        t = rtc.now();                    // Gets the current time
+        currentHourlyPeriod = HOURLYPERIOD;   // Sets the hour period for when the count starts (see #defines)
+        currentDailyPeriod = DAILYPERIOD;     // And the day  (see #defines)
+        // Deterimine when the last counts were taken check when starting test to determine if we reload values or start counts over
+        unsigned long unixTime = FRAMread32(CURRENTCOUNTSTIME);
+        TimeElements timeElement;
+        breakTime(unixTime, timeElement);
+        lastHour = int(timeElement.Hour);
+        lastDate = int(timeElement.Day);
+        if (currentDailyPeriod == lastDate) {
+            Serial.println("Restoring Counts");
+            dailyPersonCount = FRAMread16(CURRENTDAILYCOUNTADDR);  // Load Daily Count from memory
+            if (currentHourlyPeriod == lastHour) {
+                hourlyPersonCount = FRAMread16(CURRENTHOURLYCOUNTADDR);  // Load Hourly Count from memory
+            }
+        }
+        source = readRegister(0x22);     // Reads the PULSE_SRC register to reset it
+        attachInterrupt(1, WakeUpNow, LOW);   // use interrupt 1 (pin 3) and run wakeUpNow when pin 3 goes LOW
+        Serial.println(F("Test Started"));
+    }
+    else {
+        inTest = 0;
+        source = readRegister(0x22);  // Reads the PULSE_SRC register to reset it
+        detachInterrupt(1);           // disables interrupt 1 on pin 3 so the program can execute
+        t = rtc.now();            // Gets the current time
+        FRAMwrite16(CURRENTDAILYCOUNTADDR, dailyPersonCount);   // Load Daily Count to memory
+        FRAMwrite16(CURRENTHOURLYCOUNTADDR, hourlyPersonCount);  // Load Hourly Count to memory
+        unsigned long unixTime = toUnixTime(t);  // Convert to UNIX Time
+        FRAMwrite32(CURRENTCOUNTSTIME, unixTime);   // Write to FRAM - this is so we know when the last counts were saved
+        hourlyPersonCount = 0;        // Reset Person Count
+        dailyPersonCount = 0;         // Reset Person Count
+        Serial.println(F("Test Stopped"));
+    }
+}
 
 void LogHourlyEvent(DateTime LogTime) // Log Hourly Event()
 {

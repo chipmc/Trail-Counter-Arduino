@@ -11,7 +11,7 @@
 //  Copyright   (c) 2010-2016 http://embedxcode.weebly.com
 //  Licence		All rights reserved
 //
-// Last update: Mar 08, 2015 release 265
+// Last update: Apr 22, 2016 release 4.5.0
 // izmir_ec_ssh
 
 // Board identifier
@@ -41,5 +41,5 @@ HEADER_SEARCH_PATHS = /Applications/GalileoIDE.app/Contents/Resources/Java/** /A
 MAX_FLASH_SIZE = 10000000
 MAX_RAM_SIZE = 10000000
 
-// SSH through WiFi or Ethernet over USB
+// Edison SSH password and address
 //

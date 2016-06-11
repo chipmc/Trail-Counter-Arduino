@@ -56,6 +56,7 @@ ifeq ($(GENERATE_HTML),YES)
     endif
 endif
 
+
 #embed1
 #echo $VAR | tr '[:upper:]' '[:lower:]' | sed 's/ //g'
 

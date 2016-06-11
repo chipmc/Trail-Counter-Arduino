@@ -1824,7 +1824,7 @@ int main()
 
 #else
 
-#   error Board for Energia MT not defined
+#error Board for Energia MT not defined
 
 #endif
 
@@ -3452,4 +3452,6 @@ int main(void)
 
 
 #endif                                                                          // end embedXcode
+
+
 

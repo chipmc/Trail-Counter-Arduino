@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Mar 07, 2016 release 4.3.9
+# Last update: May 07, 2015 release 4.5.4
 
 
 
@@ -175,12 +175,13 @@ USB_PID     := $(call PARSE_BOARD,$(BOARD_TAG),build.pid)
 USB_PRODUCT := $(call PARSE_BOARD,$(BOARD_TAG),build.usb_product)
 USB_VENDOR  := $(call PARSE_BOARD,$(BOARD_TAG),build.usb_manufacturer)
 
-USB_FLAGS    = -DUSB_VID=$(USB_VID)
-USB_FLAGS   += -DUSB_PID=$(USB_PID)
-USB_FLAGS   += -DUSBCON
-USB_FLAGS   += -DUSB_MANUFACTURER='$(USB_VENDOR)'
-USB_FLAGS   += -DUSB_PRODUCT='$(USB_PRODUCT)'
-
+ifneq ($(USB_VID),)
+    USB_FLAGS    = -DUSB_VID=$(USB_VID)
+    USB_FLAGS   += -DUSB_PID=$(USB_PID)
+    USB_FLAGS   += -DUSBCON
+    USB_FLAGS   += -DUSB_MANUFACTURER='$(USB_VENDOR)'
+    USB_FLAGS   += -DUSB_PRODUCT='$(USB_PRODUCT)'
+endif
 
 INCLUDE_PATH     = $(CORE_LIB_PATH) $(APP_LIB_PATH) $(VARIANT_PATH) $(HARDWARE_PATH)
 INCLUDE_PATH    += $(sort $(dir $(APP_LIB_CPP_SRC) $(APP_LIB_C_SRC) $(APP_LIB_H_SRC)))
