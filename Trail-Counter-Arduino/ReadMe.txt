@@ -42,13 +42,12 @@ Hardware setup:
 Memory Map - 256kb or 32kB divided into 4096 words - the  first one is reserved
 Byte     Value
 The first word is for system data
-0        Memory Map Version (this program expects 2)
+0        Memory Map Version (see what version the program expects in the first #define)
 1        accelSensitivity
-2        Delay
-3        Daily Count Pointer
-4-5      Current Hourly Count Pointer (16-bit number)
-6        Control Register  (8 - 6 Reserved, 5-Erase Memory, 4-Reset Current Count, 3-Start / Stop Test, 2-Set Sensitivity, 1-Set Delay)
-7        Reserved
+2-3       Delay
+4        Daily Count Pointer
+5-5      Current Hourly Count Pointer (16-bit number)
+7        Control Register  (8 - 6 Reserved, 5-Erase Memory, 4-Reset Current Count, 3-Start / Stop Test, 2-Set Sensitivity, 1-Set Delay)
 The second word is for storing the current count data
 8-9      Current Hourly Count (16-bit)
 10-11    Current Daily Count (16-bit)

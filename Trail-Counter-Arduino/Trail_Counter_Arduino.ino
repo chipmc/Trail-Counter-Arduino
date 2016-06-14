@@ -82,11 +82,11 @@
 #endif
 
 //Time Period Deinifinitions - used for debugging
-#define HOURLYPERIOD t.minute()   // Normally t.hour() but can use t.minute() for debugging
-#define DAILYPERIOD t.hour() // Normally t.date() but can use t.minute() or t.hour() for debugging
+#define HOURLYPERIOD t.hour()   // Normally t.hour() but can use t.minute() for debugging
+#define DAILYPERIOD t.day() // Normally t.day() but can use t.minute() or t.hour() for debugging
 
 //These defines let me change the memory map without hunting through the whole program
-#define VERSIONNUMBER 4       // Increment this number each time the memory map is changed
+#define VERSIONNUMBER 5      // Increment this number each time the memory map is changed
 #define WORDSIZE 8            // For the Word size
 #define PAGESIZE 4096         // Memory size in bytes / word size - 256kb FRAM
 // First Word - 8 bytes for setting global values
@@ -96,10 +96,10 @@
 #define HOURLYCOUNTNUMBER 4078 // used in modulo calculations - sets the # of hours stored - 256k (4096-14-2)
 #define VERSIONADDR 0x0       // Memory Locations By Name not Number
 #define SENSITIVITYADDR 0x1   // For the 1st Word locations
-#define DEBOUNCEADDR 0x2
-#define DAILYPOINTERADDR 0x3
-#define HOURLYPOINTERADDR 0x4
-#define CONTROLREGISTER 0x6     // This is the control register acted on by both Simblee and Arduino
+#define DEBOUNCEADDR 0x2        // Two bytes for debounce
+#define DAILYPOINTERADDR 0x4
+#define HOURLYPOINTERADDR 0x5   // Two bytes for hourly pointer
+#define CONTROLREGISTER 0x7     // This is the control register acted on by both Simblee and Arduino
 
 //Second Word - 8 bytes for storing current counts
 #define CURRENTHOURLYCOUNTADDR 0x8
@@ -289,7 +289,7 @@ void setup()
     accelSensitivity = fram.read8(SENSITIVITYADDR);
     Serial.println(accelSensitivity);
     Serial.print(F("Debounce set to: "));
-    debounce = fram.read8(DEBOUNCEADDR);
+    debounce = FRAMread16(DEBOUNCEADDR);
     Serial.println(debounce);
     
     
@@ -342,7 +342,7 @@ void loop()
                 Serial.print(F("Sensitivity set to: "));
                 Serial.println(fram.read8(SENSITIVITYADDR));
                 Serial.print(F("Debounce set to: "));
-                Serial.println(fram.read8(DEBOUNCEADDR));
+                Serial.println(FRAMread16(DEBOUNCEADDR));
                 Serial.print(F("Hourly count: "));
                 Serial.println(FRAMread16(CURRENTHOURLYCOUNTADDR));
                 Serial.print(F("Daily count: "));
@@ -374,7 +374,7 @@ void loop()
                 debounce = 50*(Serial.parseInt());
                 Serial.print(F("Debounce set to: "));
                 Serial.println(debounce);
-                fram.write8(DEBOUNCEADDR, debounce);
+                FRAMwrite16(DEBOUNCEADDR, debounce);
                 break;
             case '5':  // Reset the current counters
                 Serial.println(F("Counter Reset!"));
@@ -476,7 +476,7 @@ void CheckForBump() // This is where we check to see if an interrupt is set when
                         // Turn things  on during the day
                     }
                 }
-                if (int(DAILYPERIOD) != currentDailyPeriod) {
+                else if (int(DAILYPERIOD) != currentDailyPeriod) {
                     LogDailyEvent(t);
                     Serial.print(F("Day: "));
                     Serial.print(currentDailyPeriod);
@@ -552,7 +552,7 @@ void LogHourlyEvent(DateTime LogTime) // Log Hourly Event()
     FRAMwrite32(pointer, unixTime);   // Write to FRAM - this is the end of the period
     FRAMwrite16(pointer+HOURLYCOUNTOFFSET,hourlyPersonCount);
     stateOfCharge = batteryMonitor.getSoC();
-    fram.write8(pointer+HOURLYBATTOFFSET,stateOfCharge);
+    FRAMwrite8(pointer+HOURLYBATTOFFSET,stateOfCharge);
     unsigned int newHourlyPointerAddr = (FRAMread16(HOURLYPOINTERADDR)+1) % HOURLYCOUNTNUMBER;  // This is where we "wrap" the count to stay in our memory space
     FRAMwrite16(HOURLYPOINTERADDR,newHourlyPointerAddr);
 }
@@ -560,14 +560,14 @@ void LogHourlyEvent(DateTime LogTime) // Log Hourly Event()
 
 void LogDailyEvent(DateTime LogTime) // Log Daily Event()
 {
-    int pointer = (DAILYOFFSET + fram.read8(DAILYPOINTERADDR))*WORDSIZE;  // get the pointer from memory and add the offset
-    fram.write8(pointer,LogTime.month()); // should be time.month
-    fram.write8(pointer+DAILYDATEOFFSET,LogTime.day());  // Write to FRAM - this is the end of the period  - should be time.date
+    int pointer = (DAILYOFFSET + FRAMread8(DAILYPOINTERADDR))*WORDSIZE;  // get the pointer from memory and add the offset
+    FRAMwrite8(pointer,LogTime.month()); // should be time.month
+    FRAMwrite8(pointer+DAILYDATEOFFSET,LogTime.day());  // Write to FRAM - this is the end of the period  - should be time.date
     FRAMwrite16(pointer+DAILYCOUNTOFFSET,dailyPersonCount);
     stateOfCharge = batteryMonitor.getSoC();
-    fram.write8(pointer+DAILYBATTOFFSET,stateOfCharge);
-    byte newDailyPointerAddr = (fram.read8(DAILYPOINTERADDR)+1) % DAILYCOUNTNUMBER;  // This is where we "wrap" the count to stay in our memory space
-    fram.write8(DAILYPOINTERADDR,newDailyPointerAddr);
+    FRAMwrite8(pointer+DAILYBATTOFFSET,stateOfCharge);
+    byte newDailyPointerAddr = (FRAMread8(DAILYPOINTERADDR)+1) % DAILYCOUNTNUMBER;  // This is where we "wrap" the count to stay in our memory space
+    FRAMwrite8(DAILYPOINTERADDR,newDailyPointerAddr);
 }
 
 
@@ -889,7 +889,19 @@ void FRAMwrite8(unsigned int address, uint8_t value)    // Write 8 bits to FRAM
     GiveUpTheBus();// Release exclusive access to the bus
 }
 
-
+int FRAMread16(unsigned int address)    // Read 16 bits from FRAM
+{
+    long two;
+    long one;
+    if(TakeTheBus()) {  // Request exclusive access to the bus
+        //Read the 2 bytes from  memory.
+        two = fram.read8(address);
+        one = fram.read8(address + 1);
+    }
+    GiveUpTheBus();// Release exclusive access to the bus
+    //Return the recomposed long by using bitshift.
+    return ((two << 0) & 0xFF) + ((one << 8) & 0xFFFF);
+}
 
 void FRAMwrite16(unsigned int address, int value)   // Write 16 bits to FRAM
 {
@@ -908,22 +920,7 @@ void FRAMwrite16(unsigned int address, int value)   // Write 16 bits to FRAM
     GiveUpTheBus();// Release exclusive access to the bus
 }
 
-int FRAMread16(unsigned int address)    // Read 16 bits from FRAM
-{
-    long two;
-    long one;
-    if(TakeTheBus()) {  // Request exclusive access to the bus
-        //Read the 2 bytes from  memory.
-        two = fram.read8(address);
-        one = fram.read8(address + 1);
-    }
-    GiveUpTheBus();// Release exclusive access to the bus
-    //Return the recomposed long by using bitshift.
-    return ((two << 0) & 0xFF) + ((one << 8) & 0xFFFF);
-}
-
-
-void FRAMwrite32(int address, unsigned long value)  // Write 16 bits to FRAM
+void FRAMwrite32(int address, unsigned long value)  // Write 32 bits to FRAM
 {
     //This function will write a 4 byte (32bit) long to the eeprom at
     //the specified address to address + 3.
@@ -969,14 +966,14 @@ void ResetFRAM()  // This will reset the FRAM - set the version and preserve del
     // Note - have to hard code the size here due to this issue - http://www.microchip.com/forums/m501193.aspx
     Serial.println("Resetting Memory");
     for (unsigned long i=3; i < 32768; i++) {  // Start at 3 to not overwrite debounce and sensitivity
-        fram.write8(i,0x0);
+        FRAMwrite8(i,0x0);
         //Serial.println(i);
         if (i==8192) Serial.println(F("25% done"));
         if (i==16384) Serial.println(F("50% done"));
         if (i==(24576)) Serial.println(F("75% done"));
         if (i==32767) Serial.println(F("Done"));
     }
-    fram.write8(VERSIONADDR,VERSIONNUMBER);  // Reset version to match #define value for sketch
+    FRAMwrite8(VERSIONADDR,VERSIONNUMBER);  // Reset version to match #define value for sketch
 }
 
 
