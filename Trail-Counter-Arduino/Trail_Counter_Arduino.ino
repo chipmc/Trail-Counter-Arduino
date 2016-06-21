@@ -195,11 +195,13 @@ byte currentDailyPeriod;     // We will keep daily counts as well as period coun
 
 // Variables for the control byte
 // Control Register  (8 - 4 Reserved, 3-Start / Stop Test, 2-Set Sensitivity, 1-Set Delay)
-byte signalDelayChange = B00000001;
+byte signalDebounceChange = B00000001;
+byte clearDebounceChange = B11111110;
 byte signalSentitivityChange = B00000010;
-byte testStart = B00000100;
-byte testStop = B11111011;
+byte toggleStartStop = B00000100;
+byte signalTimeChange = B00001000;
 byte controlRegisterValue;
+byte oldControlRegisterValue;
 unsigned long lastCheckedControlRegister;
 int controlRegisterDelay = 1000;
 
@@ -388,11 +390,11 @@ void loop()
                 break;
             case '7':  // Start or stop the test
                 if (inTest == 0) {
-                    FRAMwrite8(CONTROLREGISTER,testStart |= controlRegisterValue);
+                    FRAMwrite8(CONTROLREGISTER, toggleStartStop |= controlRegisterValue);
                     StartStopTest(1);
                 }
                 else {
-                    FRAMwrite8(CONTROLREGISTER,testStop &= controlRegisterValue);
+                    FRAMwrite8(CONTROLREGISTER, toggleStartStop |= controlRegisterValue);
                     StartStopTest(0);
                     refreshMenu = 1;
                 }
@@ -442,13 +444,31 @@ void loop()
         }
     }
     if (millis() >= lastCheckedControlRegister + controlRegisterDelay) {
+        oldControlRegisterValue = controlRegisterValue;
         controlRegisterValue = FRAMread8(CONTROLREGISTER);
         lastCheckedControlRegister = millis();
-        if ((controlRegisterValue & testStart) >> 2) {
-            if (!inTest) StartStopTest(1);
+        if (controlRegisterValue != oldControlRegisterValue)
+        {
+            Serial.print("Control Register Value =");
+            Serial.println(controlRegisterValue);
         }
-        else {
-            if (inTest) StartStopTest(0);
+        if ((controlRegisterValue & toggleStartStop) >> 2 && !inTest)
+        {
+            StartStopTest(1);  // If the control says start but we are stopped
+            Serial.println("Starting the test");
+        }
+        else if (!((controlRegisterValue & toggleStartStop) >> 2) && inTest)
+        {
+            StartStopTest(0); // If the control bit says stop but we have started
+            Serial.println("Stopping the test");
+        }
+        else if (controlRegisterValue & signalDebounceChange)   // If we changed the debounce value on the Simblee side
+        {
+            debounce = FRAMread16(DEBOUNCEADDR);
+            Serial.print("Updated debounce value to:");
+            Serial.println(debounce);
+            controlRegisterValue &= clearDebounceChange;
+            FRAMwrite8(CONTROLREGISTER, controlRegisterValue);
         }
     }
 }
