@@ -164,10 +164,11 @@ void LogDailyEvent(DateTime LogTime); // Log Daily Event()
 void CheckForBump(); // Check for bump
 void WakeUpNow();      // here the interrupt is handled after wakeup
 void sleepNow();  // Puts the Arduino to Sleep
+void NonBlockingDelay(int millisDelay);  // Used for a non-blocking delay
 
 
 // Prototypes for Date and Time Functions
-int SetTimeDate(); // Sets the RTC date and time
+void SetTimeDate(); // Sets the RTC date and time
 void PrintTimeDate(); // Prints to the console
 unsigned long toUnixTime(DateTime ut); //Converts to Unix time for storage
 void toArduinoTime(unsigned long unixT); //Converts to Arduino Time for use with the RTC and program
@@ -198,8 +199,10 @@ byte currentDailyPeriod;     // We will keep daily counts as well as period coun
 byte signalDebounceChange = B00000001;
 byte clearDebounceChange = B11111110;
 byte signalSentitivityChange = B00000010;
+byte clearSensitivityChange = B11111101;
 byte toggleStartStop = B00000100;
 byte signalTimeChange = B00001000;
+byte clearTimeChange = B11110111;
 byte controlRegisterValue;
 byte oldControlRegisterValue;
 unsigned long lastCheckedControlRegister;
@@ -236,40 +239,43 @@ void setup()
     pinMode(YELLOWLED, OUTPUT);           // declare the Yellow LED Pin as as OUTPUT
     pinMode(LEDPWR, OUTPUT);            // declare the Bluetooth Dongle Power pin as as OUTPUT
     digitalWrite(LEDPWR, LOW);          // Turn on the power to the LEDs
+    pinMode(INT2PIN, INPUT);            // Set up the interrupt pins, they're set as active low with an external pull-up
     
-    batteryMonitor.reset();               // Initialize the battery monitor
-    batteryMonitor.quickStart();
     
-    if (! rtc.begin()) {                    // Not sure if this is working
-        Serial.println("Couldn't find RTC");
-        BlinkForever();
-    }
+    //  Arduino takes the bus for this entire section...
+    TakeTheBus(); // Need th i2c bus for initializations
+        batteryMonitor.reset();               // Initialize the battery monitor
+        batteryMonitor.quickStart();
     
-    enable32Khz(1); // turns on the 32k squarewave - need to test effect on power
+        if (! rtc.begin()) {                    // Not sure if this is working
+            Serial.println("Couldn't find RTC");
+            BlinkForever();
+        }
+        
+        enable32Khz(1); // turns on the 32k squarewave - need to test effect on power
+        
+        if (rtc.lostPower()) {
+            Serial.println("RTC lost power, lets set the time!");
+            // following line sets the RTC to the date & time this sketch was compiled
+            rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+            // This line sets the RTC with an explicit date & time, for example to set
+            // January 21, 2014 at 3am you would call:
+            // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+        }
+        
+        if (fram.begin()) {  // you can stick the new i2c addr in here, e.g. begin(0x51);
+            Serial.println(F("Found I2C FRAM"));
+        } else {
+            Serial.println(F("No I2C FRAM found ... check your connections"));
+            BlinkForever();
+        }
+    GiveUpTheBus(); // Done with i2c initializations
+    // Arduino gives up the bus here.
     
-    if (rtc.lostPower()) {
-        Serial.println("RTC lost power, lets set the time!");
-        // following line sets the RTC to the date & time this sketch was compiled
-        rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-        // This line sets the RTC with an explicit date & time, for example to set
-        // January 21, 2014 at 3am you would call:
-        // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
-    }
     
-    // Set up the interrupt pins, they're set as active low with an external pull-up
-    pinMode(INT2PIN, INPUT);
-    
-    if (fram.begin()) {  // you can stick the new i2c addr in here, e.g. begin(0x51);
-        Serial.println(F("Found I2C FRAM"));
-    } else {
-        Serial.println(F("No I2C FRAM found ... check your connections"));
-        BlinkForever();
-    }
-    
-    // Check to see if the memory map in the sketch matches the data on the chip
-    if (fram.read8(VERSIONADDR) != VERSIONNUMBER) {
+    if (FRAMread8(VERSIONADDR) != VERSIONNUMBER) {  // Check to see if the memory map in the sketch matches the data on the chip
         Serial.print(F("FRAM Version Number: "));
-        Serial.println(fram.read8(VERSIONADDR));
+        Serial.println(FRAMread8(VERSIONADDR));
         Serial.read();
         Serial.println(F("Memory/Sketch mismatch! Erase FRAM? (Y/N)"));
         while (!Serial.available());
@@ -288,13 +294,15 @@ void setup()
     
     // Import the accelSensitivity and Debounce values from memory
     Serial.print(F("Sensitivity set to: "));
-    accelSensitivity = fram.read8(SENSITIVITYADDR);
+    accelSensitivity = FRAMread8(SENSITIVITYADDR);
     Serial.println(accelSensitivity);
     Serial.print(F("Debounce set to: "));
     debounce = FRAMread16(DEBOUNCEADDR);
     Serial.println(debounce);
     
+    FRAMwrite8(CONTROLREGISTER, 0x0);       // Reset the control values
     
+    TakeTheBus();  // Need to initialize the accelerometer
     // Read the WHO_AM_I register of the Accelerometer, this is a good test of communication
     byte c = readRegister(0x0D);  // Read WHO_AM_I register
     if (c == 0x2A) // WHO_AM_I should always be 0x2A
@@ -308,6 +316,7 @@ void setup()
         Serial.println(c, HEX);
         BlinkForever() ; // Loop forever if communication doesn't happen
     }
+    GiveUpTheBus(); // Done!
 }
 
 // Add loop code
@@ -336,13 +345,15 @@ void loop()
                 break;
             case '1':   // Display Current Status Information
                 Serial.print(F("Current Time:"));
-                PrintTimeDate();
+                PrintTimeDate();  // Give and take the bus are in this function as it gets the current time
+                TakeTheBus();
                 stateOfCharge = batteryMonitor.getSoC();
+                GiveUpTheBus();
                 Serial.print(F("State of charge: "));
                 Serial.print(stateOfCharge);
                 Serial.println("%");
                 Serial.print(F("Sensitivity set to: "));
-                Serial.println(fram.read8(SENSITIVITYADDR));
+                Serial.println(FRAMread8(SENSITIVITYADDR));
                 Serial.print(F("Debounce set to: "));
                 Serial.println(FRAMread16(DEBOUNCEADDR));
                 Serial.print(F("Hourly count: "));
@@ -364,8 +375,10 @@ void loop()
                 accelSensitivity = byte(accelInputValue);
                 Serial.print(F("accelSensitivity set to: "));
                 Serial.println(accelInputValue);
-                fram.write8(SENSITIVITYADDR, accelSensitivity);
+                FRAMwrite8(SENSITIVITYADDR, accelSensitivity);
+                TakeTheBus();
                 initMMA8452(accelFullScaleRange, dataRate);  // init the accelerometer if communication is OK
+                GiveUpTheBus();
                 Serial.println(F("MMA8452Q is online..."));
                 break;
             case '4':  // Change the debounce value
@@ -390,11 +403,11 @@ void loop()
                 break;
             case '7':  // Start or stop the test
                 if (inTest == 0) {
-                    FRAMwrite8(CONTROLREGISTER, toggleStartStop |= controlRegisterValue);
+                    FRAMwrite8(CONTROLREGISTER, toggleStartStop | controlRegisterValue);    // Toggle the start stop bit high
                     StartStopTest(1);
                 }
                 else {
-                    FRAMwrite8(CONTROLREGISTER, toggleStartStop |= controlRegisterValue);
+                    FRAMwrite8(CONTROLREGISTER, toggleStartStop ^ controlRegisterValue);    // Toggle the start stop bit low
                     StartStopTest(0);
                     refreshMenu = 1;
                 }
@@ -402,13 +415,13 @@ void loop()
             case '8':   // Dump the hourly data to the monitor
                 Serial.println(F("Hour Ending -   Count  - Battery %"));
                 for (int i=0; i < HOURLYCOUNTNUMBER; i++) {
-                    if (fram.read8((HOURLYOFFSET + (i+FRAMread16(HOURLYPOINTERADDR)) % HOURLYCOUNTNUMBER)*WORDSIZE) != 0) {
+                    if (FRAMread8((HOURLYOFFSET + (i+FRAMread16(HOURLYPOINTERADDR)) % HOURLYCOUNTNUMBER)*WORDSIZE) != 0) {
                         unsigned long unixTime = FRAMread32((HOURLYOFFSET + (i+FRAMread16(HOURLYPOINTERADDR)) % HOURLYCOUNTNUMBER)*WORDSIZE);
                         toArduinoTime(unixTime);
                         Serial.print(" - ");
                         Serial.print(FRAMread16(((HOURLYOFFSET + (i+FRAMread16(HOURLYPOINTERADDR)) % HOURLYCOUNTNUMBER)*WORDSIZE)+HOURLYCOUNTOFFSET));
                         Serial.print("  -  ");
-                        Serial.print(fram.read8(((HOURLYOFFSET + (i+FRAMread16(HOURLYPOINTERADDR)) % HOURLYCOUNTNUMBER)*WORDSIZE)+HOURLYBATTOFFSET));
+                        Serial.print(FRAMread8(((HOURLYOFFSET + (i+FRAMread16(HOURLYPOINTERADDR)) % HOURLYCOUNTNUMBER)*WORDSIZE)+HOURLYBATTOFFSET));
                         Serial.println("%");
                     }
                 }
@@ -417,14 +430,14 @@ void loop()
             case '9':  // Download the daily counts
                 Serial.println(F("Date - Count - Battery %"));
                 for (int i=0; i < DAILYCOUNTNUMBER; i++) {
-                    if (fram.read8((DAILYOFFSET + (i+fram.read8(DAILYPOINTERADDR)) % DAILYCOUNTNUMBER)*WORDSIZE+DAILYCOUNTOFFSET) != 0) {
-                        Serial.print(fram.read8((DAILYOFFSET + (i+fram.read8(DAILYPOINTERADDR)) % DAILYCOUNTNUMBER)*WORDSIZE));
+                    if (FRAMread8((DAILYOFFSET + (i+FRAMread8(DAILYPOINTERADDR)) % DAILYCOUNTNUMBER)*WORDSIZE+DAILYCOUNTOFFSET) != 0) {
+                        Serial.print(FRAMread8((DAILYOFFSET + (i+FRAMread8(DAILYPOINTERADDR)) % DAILYCOUNTNUMBER)*WORDSIZE));
                         Serial.print("/");
-                        Serial.print(fram.read8((DAILYOFFSET + (i+fram.read8(DAILYPOINTERADDR)) % DAILYCOUNTNUMBER)*WORDSIZE+DAILYDATEOFFSET));
+                        Serial.print(FRAMread8((DAILYOFFSET + (i+FRAMread8(DAILYPOINTERADDR)) % DAILYCOUNTNUMBER)*WORDSIZE+DAILYDATEOFFSET));
                         Serial.print(" - ");
-                        Serial.print(FRAMread16((DAILYOFFSET + (i+fram.read8(DAILYPOINTERADDR)) % DAILYCOUNTNUMBER)*WORDSIZE+DAILYCOUNTOFFSET));
+                        Serial.print(FRAMread16((DAILYOFFSET + (i+FRAMread8(DAILYPOINTERADDR)) % DAILYCOUNTNUMBER)*WORDSIZE+DAILYCOUNTOFFSET));
                         Serial.print("  -  ");
-                        Serial.print(fram.read8((DAILYOFFSET + (i+fram.read8(DAILYPOINTERADDR)) % DAILYCOUNTNUMBER)*WORDSIZE+DAILYBATTOFFSET));
+                        Serial.print(FRAMread8((DAILYOFFSET + (i+FRAMread8(DAILYPOINTERADDR)) % DAILYCOUNTNUMBER)*WORDSIZE+DAILYBATTOFFSET));
                         Serial.println("%");
                     }
                 }
@@ -444,14 +457,8 @@ void loop()
         }
     }
     if (millis() >= lastCheckedControlRegister + controlRegisterDelay) {
-        oldControlRegisterValue = controlRegisterValue;
         controlRegisterValue = FRAMread8(CONTROLREGISTER);
         lastCheckedControlRegister = millis();
-        if (controlRegisterValue != oldControlRegisterValue)
-        {
-            Serial.print("Control Register Value =");
-            Serial.println(controlRegisterValue);
-        }
         if ((controlRegisterValue & toggleStartStop) >> 2 && !inTest)
         {
             StartStopTest(1);  // If the control says start but we are stopped
@@ -469,6 +476,22 @@ void loop()
             Serial.println(debounce);
             controlRegisterValue &= clearDebounceChange;
             FRAMwrite8(CONTROLREGISTER, controlRegisterValue);
+            Serial.print("Debounce Updated Control Register Value =");
+            Serial.println(controlRegisterValue);
+        }
+        else if (controlRegisterValue & signalSentitivityChange)   // If we changed the debounce value on the Simblee side
+        {
+            accelSensitivity = FRAMread8(SENSITIVITYADDR);
+            TakeTheBus();
+                initMMA8452(accelFullScaleRange, dataRate);  // init the accelerometer if communication is OK
+            GiveUpTheBus();
+            Serial.println(F("MMA8452Q is online..."));
+            Serial.print("Updated sensitivity value to:");
+            Serial.println(accelSensitivity);
+            controlRegisterValue &= clearSensitivityChange;
+            FRAMwrite8(CONTROLREGISTER, controlRegisterValue);
+            Serial.print("Sensitivty Updated Control Register Value =");
+            Serial.println(controlRegisterValue);
         }
     }
 }
@@ -480,7 +503,9 @@ void CheckForBump() // This is where we check to see if an interrupt is set when
     {
         if ((source & 0x08)==0x08) { // We are only interested in the TAP register so read that
             if (millis() >= lastBump + debounce) {
-                t = rtc.now();
+                TakeTheBus();
+                    t = rtc.now();
+                GiveUpTheBus();
                 if (int(HOURLYPERIOD) != currentHourlyPeriod) {
                     LogHourlyEvent(t);
                     Serial.print(F("Hour: "));
@@ -530,7 +555,18 @@ void StartStopTest(boolean startTest)  // Since the test can be started from the
 {
     if (startTest) {
         inTest = 1;
-        t = rtc.now();                    // Gets the current time
+        Serial.print("Starting Test - CONTROLREGISTER = ");
+        Serial.println(FRAMread8(CONTROLREGISTER));
+        //Serial.print("The value of toggleStartStop is:");
+        //Serial.println(toggleStartStop);
+        //Serial.print("The value of controlRegisterValue is:");
+        //Serial.println(controlRegisterValue);
+        //FRAMwrite8(CONTROLREGISTER, toggleStartStop | controlRegisterValue);        // Will result in a start stop bit HIGH
+        //Serial.print("The new value of CONTROLREGISTER is:");
+        //Serial.println(FRAMread8(CONTROLREGISTER));
+        TakeTheBus();
+            t = rtc.now();                    // Gets the current time
+        GiveUpTheBus();
         currentHourlyPeriod = HOURLYPERIOD;   // Sets the hour period for when the count starts (see #defines)
         currentDailyPeriod = DAILYPERIOD;     // And the day  (see #defines)
         // Deterimine when the last counts were taken check when starting test to determine if we reload values or start counts over
@@ -546,15 +582,21 @@ void StartStopTest(boolean startTest)  // Since the test can be started from the
                 hourlyPersonCount = FRAMread16(CURRENTHOURLYCOUNTADDR);  // Load Hourly Count from memory
             }
         }
-        source = readRegister(0x22);     // Reads the PULSE_SRC register to reset it
+        TakeTheBus();
+            source = readRegister(0x22);     // Reads the PULSE_SRC register to reset it
+        GiveUpTheBus();
         attachInterrupt(1, WakeUpNow, LOW);   // use interrupt 1 (pin 3) and run wakeUpNow when pin 3 goes LOW
         Serial.println(F("Test Started"));
     }
     else {
         inTest = 0;
-        source = readRegister(0x22);  // Reads the PULSE_SRC register to reset it
-        detachInterrupt(1);           // disables interrupt 1 on pin 3 so the program can execute
-        t = rtc.now();            // Gets the current time
+        Serial.print("Stopping Test since CONTROLREGISTER is:");
+        Serial.println(FRAMread8(CONTROLREGISTER));
+        TakeTheBus();
+            source = readRegister(0x22);  // Reads the PULSE_SRC register to reset it
+            detachInterrupt(1);           // disables interrupt 1 on pin 3 so the program can execute
+            t = rtc.now();            // Gets the current time
+        GiveUpTheBus();
         FRAMwrite16(CURRENTDAILYCOUNTADDR, dailyPersonCount);   // Load Daily Count to memory
         FRAMwrite16(CURRENTHOURLYCOUNTADDR, hourlyPersonCount);  // Load Hourly Count to memory
         unsigned long unixTime = toUnixTime(t);  // Convert to UNIX Time
@@ -571,7 +613,9 @@ void LogHourlyEvent(DateTime LogTime) // Log Hourly Event()
     unsigned long unixTime = toUnixTime(LogTime);  // Convert to UNIX Time
     FRAMwrite32(pointer, unixTime);   // Write to FRAM - this is the end of the period
     FRAMwrite16(pointer+HOURLYCOUNTOFFSET,hourlyPersonCount);
-    stateOfCharge = batteryMonitor.getSoC();
+    TakeTheBus();
+        stateOfCharge = batteryMonitor.getSoC();
+    GiveUpTheBus();
     FRAMwrite8(pointer+HOURLYBATTOFFSET,stateOfCharge);
     unsigned int newHourlyPointerAddr = (FRAMread16(HOURLYPOINTERADDR)+1) % HOURLYCOUNTNUMBER;  // This is where we "wrap" the count to stay in our memory space
     FRAMwrite16(HOURLYPOINTERADDR,newHourlyPointerAddr);
@@ -584,14 +628,17 @@ void LogDailyEvent(DateTime LogTime) // Log Daily Event()
     FRAMwrite8(pointer,LogTime.month()); // should be time.month
     FRAMwrite8(pointer+DAILYDATEOFFSET,LogTime.day());  // Write to FRAM - this is the end of the period  - should be time.date
     FRAMwrite16(pointer+DAILYCOUNTOFFSET,dailyPersonCount);
-    stateOfCharge = batteryMonitor.getSoC();
+    TakeTheBus();
+        stateOfCharge = batteryMonitor.getSoC();
+    GiveUpTheBus();
     FRAMwrite8(pointer+DAILYBATTOFFSET,stateOfCharge);
     byte newDailyPointerAddr = (FRAMread8(DAILYPOINTERADDR)+1) % DAILYCOUNTNUMBER;  // This is where we "wrap" the count to stay in our memory space
     FRAMwrite8(DAILYPOINTERADDR,newDailyPointerAddr);
 }
 
 
-int SetTimeDate() {
+void SetTimeDate()  // Function to set the date and time from the terminal window
+{
     Serial.println(F("Enter Seconds (0-59): "));
     while (Serial.available() == 0) {  // Look for char in serial queue and process if found
         continue;
@@ -622,15 +669,19 @@ int SetTimeDate() {
         continue;
     }
     int year = 2000 + Serial.parseInt();
-    rtc.adjust(DateTime(year,month,day,hour, minute, sec));       // This line sets the RTC with an explicit date & time, for example to set
-    // January 21, 2014 at 3am you would call:
-    // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+    TakeTheBus();
+        rtc.adjust(DateTime(year,month,day,hour, minute, sec));       // This line sets the RTC with an explicit date & time, for example to set
+        // January 21, 2014 at 3am you would call:
+        // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+    GiveUpTheBus();
     
-}   // Function to set the date and time from the terminal window
+}
 
 void PrintTimeDate()  // Prints time and date to the console
 {
-    DateTime now = rtc.now();
+    TakeTheBus();
+        DateTime now = rtc.now();
+    GiveUpTheBus();
     Serial.print(now.year(), DEC);
     Serial.print('/');
     Serial.print(now.month(), DEC);
@@ -869,24 +920,25 @@ void BlinkForever() // When something goes badly wrong...
     }
 }
 
-boolean TakeTheBus()    // Claim the shared i2c bus
+
+boolean TakeTheBus()
 {
-    int timeout = 10000;  // We will wait ten seconds then give up
-    unsigned long startListening = millis();
-    //Serial.println("Simblee has the Bus");
-    while(!digitalRead(The32kPin)) {} // The Arduino will wait until the SQW pin goes low (Arduino needs high)
-    while (!digitalRead(TalkPin))  { // Only proceed once the TalkPin is high or we timeout
-        if (millis() >= timeout + startListening) return 0;  // timed out
-    }
-    pinMode(TalkPin,OUTPUT);  // Change to output
-    digitalWrite(TalkPin,LOW);  // Claim the bus
-    return 1;           // We have it
+    //Serial.print("Arduino: Asking for the bus...");
+    while(!digitalRead(The32kPin)) {} // The Arduino will only read the Talk line when SQW pin goes HIGH
+    //Serial.print("..Tick..");
+    while (!digitalRead(TalkPin)) {} // Only proceed once the TalkPin is HIGH
+    pinMode(TalkPin,OUTPUT);        // Change to output
+    digitalWrite(TalkPin,LOW);      // Claim the bus by bringing the TalkPin LOW
+    //Serial.println("..We have the bus");
+    return 1;                       // We have it
 }
 
-boolean GiveUpTheBus()  // Give up the shared i2c bus
+boolean GiveUpTheBus()
 {
-    pinMode(TalkPin,INPUT);  // Start listening again
-    //Serial.println("Simblee gave up the Bus");
+    //Serial.print("Arduino: Giving up the bus...");
+    pinMode(TalkPin,INPUT_PULLUP);  // Start listening again
+    //Serial.print("We gave up the Bus .. TalkPin =");
+    //Serial.println(digitalRead(TalkPin));
     return 1;
 }
 
@@ -1016,4 +1068,11 @@ void enable32Khz(uint8_t enable)  // Need to turn on the 32k square wave for bus
     Wire.write(0x0F);
     Wire.write(sreg);
     Wire.endTransmission();
+}
+
+void NonBlockingDelay(int millisDelay)  // Used for a non-blocking delay
+{
+    unsigned long commandTime = millis();
+    while (millis() <= millisDelay + commandTime) { }
+    return;
 }
