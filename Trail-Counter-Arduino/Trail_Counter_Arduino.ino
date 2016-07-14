@@ -195,14 +195,13 @@ byte currentHourlyPeriod;    // This is where we will know if the period changed
 byte currentDailyPeriod;     // We will keep daily counts as well as period counts
 
 // Variables for the control byte
-// Control Register  (8 - 4 Reserved, 3-Start / Stop Test, 2-Set Sensitivity, 1-Set Delay)
+// Control Register  (8 - 5 Reserved, 4-Toggle LEDs, 3-Start / Stop Test, 2-Set Sensitivity, 1-Set Delay)
 byte signalDebounceChange = B00000001;
 byte clearDebounceChange = B11111110;
 byte signalSentitivityChange = B00000010;
 byte clearSensitivityChange = B11111101;
 byte toggleStartStop = B00000100;
-byte signalTimeChange = B00001000;
-byte clearTimeChange = B11110111;
+byte toggleLEDs = B00001000;
 byte controlRegisterValue;
 byte oldControlRegisterValue;
 unsigned long lastCheckedControlRegister;
@@ -367,7 +366,7 @@ void loop()
                 Serial.println(F("Date and Time Set"));
                 break;
             case '3':  // Change the sensitivity
-                Serial.println(F("Enter 0 (most) to 9 (least)"));
+                Serial.println(F("Enter 0 (most) to 16 (least)"));
                 while (Serial.available() == 0) {  // Look for char in serial queue and process if found
                     continue;
                 }
@@ -377,7 +376,7 @@ void loop()
                 Serial.println(accelInputValue);
                 FRAMwrite8(SENSITIVITYADDR, accelSensitivity);
                 TakeTheBus();
-                initMMA8452(accelFullScaleRange, dataRate);  // init the accelerometer if communication is OK
+                    initMMA8452(accelFullScaleRange, dataRate);  // init the accelerometer if communication is OK
                 GiveUpTheBus();
                 Serial.println(F("MMA8452Q is online..."));
                 break;
@@ -458,6 +457,8 @@ void loop()
     }
     if (millis() >= lastCheckedControlRegister + controlRegisterDelay) {
         controlRegisterValue = FRAMread8(CONTROLREGISTER);
+        Serial.print("ControlRegisterValue = ");
+        Serial.println(controlRegisterValue);
         lastCheckedControlRegister = millis();
         if ((controlRegisterValue & toggleStartStop) >> 2 && !inTest)
         {
@@ -492,6 +493,16 @@ void loop()
             FRAMwrite8(CONTROLREGISTER, controlRegisterValue);
             Serial.print("Sensitivty Updated Control Register Value =");
             Serial.println(controlRegisterValue);
+        }
+        else if ((controlRegisterValue & toggleLEDs) >> 3)
+        {
+            digitalWrite(LEDPWR,LOW);
+            Serial.println("Turn on the LEDs");
+        }
+        else if (!((controlRegisterValue & toggleLEDs) >> 3))
+        {
+            digitalWrite(LEDPWR,HIGH);
+            Serial.println("Turn off the LEDs");
         }
     }
 }
