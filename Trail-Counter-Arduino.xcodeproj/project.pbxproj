@@ -1276,6 +1276,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		813364531D393D7500BCF105 /* FRAMcommon.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FRAMcommon.h; sourceTree = "<group>"; };
 		81F89EB51CE16A8300530EC0 /* Index */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Index; sourceTree = BUILT_PRODUCTS_DIR; };
 		81F89EB81CE16A8300530EC0 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		81F89EBA1CE16A8300530EC0 /* Makefile */ = {isa = PBXFileReference; explicitFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
@@ -2752,6 +2753,7 @@
 		81F89EB71CE16A8300530EC0 /* Trail-Counter-Arduino */ = {
 			isa = PBXGroup;
 			children = (
+				813364531D393D7500BCF105 /* FRAMcommon.h */,
 				81F89F9F1CE16C4900530EC0 /* defs.h */,
 				81F89FA01CE16C4900530EC0 /* i2c.h */,
 				81F89FA11CE16C4900530EC0 /* types.h */,

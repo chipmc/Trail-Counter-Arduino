@@ -127,33 +127,20 @@
 #include "RTClib.h"             // Adafruit's library which includes the DS3231
 #include "Time.h"             // This library brings Unix Time capabilities
 #include "Adafruit_FRAM_I2C.h"  // Library for FRAM functions
+#include "FRAMcommon.h"     // Where I put all the common FRAM read and write extensions
 
 
 // Prototypes
 // Prototypes From the included libraries
 RTC_DS3231 rtc;                               // Init the DS3231
 MAX17043 batteryMonitor;                      // Init the Fuel Gauge
-Adafruit_FRAM_I2C fram = Adafruit_FRAM_I2C(); // Init the FRAM
-
-// Prototypes From my functions
-// Prototypes for FRAM Functions
-unsigned long FRAMread32(unsigned long address); // Reads a 32 bit word
-void FRAMwrite32(int address, unsigned long value);  // Writes a 32-bit word
-int FRAMread16(unsigned int address); // Reads a 16 bit word
-void FRAMwrite16(unsigned int address, int value); //Writes a 32-bit word
-uint8_t FRAMread8(unsigned int address);  // Reads a 8 bit word
-void FRAMwrite8(unsigned int address, uint8_t value); //Writes a 32-bit word
-void ResetFRAM();  // This will reset the FRAM - set the version and preserve delay and sensitivity
 
 // Prototypes for i2c functions
-boolean GiveUpTheBus(); // Give up the i2c bus
-boolean TakeTheBus(); // Take the 12c bus
 byte readRegister(uint8_t address); // Read an i2c device register
 void writeRegister(unsigned char address, unsigned char data); // Writes to an i2c device register
 void MMA8452Standby(); // Puts the i2c module into standby mode
 void MMA8452Active();  // Bring the MMA8452 back on-line
 void initMMA8452(byte fsr, byte dataRate);  // Initialize the MMA8452
-void enable32Khz(uint8_t enable);  // Need to turn on the 32k square wave for bus moderation
 
 
 // Prototypes for General Functions
@@ -172,12 +159,6 @@ void SetTimeDate(); // Sets the RTC date and time
 void PrintTimeDate(); // Prints to the console
 unsigned long toUnixTime(DateTime ut); //Converts to Unix time for storage
 void toArduinoTime(unsigned long unixT); //Converts to Arduino Time for use with the RTC and program
-
-
-// Define variables and constants
-// Pin Value Variables
-const int TalkPin = A0;  // This is the open-drain line for signaling i2c mastery
-const int The32kPin = A1;  // This is a 32k squarewave from the DS3231
 
 
 // FRAM and Unix time variables
@@ -227,6 +208,7 @@ int delaySleep = 3000;         // Wait until going back to sleep so we can enter
 int menuChoice=0;              // Menu Selection
 boolean refreshMenu = 1;       //  Tells whether to write the menu
 boolean inTest = 0;            // Are we in a test or not
+boolean LEDSon = 0;             // Are the LEDs on or off
 
 // Add setup code
 void setup()
@@ -299,7 +281,8 @@ void setup()
     debounce = FRAMread16(DEBOUNCEADDR);
     Serial.println(debounce);
     
-    FRAMwrite8(CONTROLREGISTER, 0x0);       // Reset the control values
+    FRAMwrite8(CONTROLREGISTER, B00001000);       // Reset the control register and turn on the lights
+    LEDSon = 1;
     
     TakeTheBus();  // Need to initialize the accelerometer
     // Read the WHO_AM_I register of the Accelerometer, this is a good test of communication
@@ -315,7 +298,9 @@ void setup()
         Serial.println(c, HEX);
         BlinkForever() ; // Loop forever if communication doesn't happen
     }
+    
     GiveUpTheBus(); // Done!
+    
 }
 
 // Add loop code
@@ -457,8 +442,11 @@ void loop()
     }
     if (millis() >= lastCheckedControlRegister + controlRegisterDelay) {
         controlRegisterValue = FRAMread8(CONTROLREGISTER);
-        Serial.print("ControlRegisterValue = ");
-        Serial.println(controlRegisterValue);
+        if (controlRegisterValue != oldControlRegisterValue) {       // debugging code 
+            Serial.print("ControlRegisterValue = ");
+            Serial.println(controlRegisterValue);
+            oldControlRegisterValue = controlRegisterValue;
+        }
         lastCheckedControlRegister = millis();
         if ((controlRegisterValue & toggleStartStop) >> 2 && !inTest)
         {
@@ -494,14 +482,16 @@ void loop()
             Serial.print("Sensitivty Updated Control Register Value =");
             Serial.println(controlRegisterValue);
         }
-        else if ((controlRegisterValue & toggleLEDs) >> 3)
+        else if (((controlRegisterValue & toggleLEDs) >> 3) && !LEDSon)
         {
             digitalWrite(LEDPWR,LOW);
+            LEDSon = 1; // This keeps us from entering this conditional until there is a change
             Serial.println("Turn on the LEDs");
         }
-        else if (!((controlRegisterValue & toggleLEDs) >> 3))
+        else if (!((controlRegisterValue & toggleLEDs) >> 3) && LEDSon)
         {
             digitalWrite(LEDPWR,HIGH);
+            LEDSon = 0; // This keeps us from entering this conditional until there is a change
             Serial.println("Turn off the LEDs");
         }
     }
@@ -932,133 +922,6 @@ void BlinkForever() // When something goes badly wrong...
 }
 
 
-boolean TakeTheBus()
-{
-    //Serial.print("Arduino: Asking for the bus...");
-    while(!digitalRead(The32kPin)) {} // The Arduino will only read the Talk line when SQW pin goes HIGH
-    //Serial.print("..Tick..");
-    while (!digitalRead(TalkPin)) {} // Only proceed once the TalkPin is HIGH
-    pinMode(TalkPin,OUTPUT);        // Change to output
-    digitalWrite(TalkPin,LOW);      // Claim the bus by bringing the TalkPin LOW
-    //Serial.println("..We have the bus");
-    return 1;                       // We have it
-}
-
-boolean GiveUpTheBus()
-{
-    //Serial.print("Arduino: Giving up the bus...");
-    pinMode(TalkPin,INPUT_PULLUP);  // Start listening again
-    //Serial.print("We gave up the Bus .. TalkPin =");
-    //Serial.println(digitalRead(TalkPin));
-    return 1;
-}
-
-
-uint8_t FRAMread8(unsigned int address) // Read 8 bits from FRAM
-{
-    uint8_t result;
-    if (TakeTheBus()) {  // Request exclusive access to the bus
-        result = fram.read8(address);
-    }
-    GiveUpTheBus();// Release exclusive access to the bus
-    return result;
-}
-
-void FRAMwrite8(unsigned int address, uint8_t value)    // Write 8 bits to FRAM
-{
-    if (TakeTheBus()) {  // Request exclusive access to the bus
-        fram.write8(address,value);
-    }
-    GiveUpTheBus();// Release exclusive access to the bus
-}
-
-int FRAMread16(unsigned int address)    // Read 16 bits from FRAM
-{
-    long two;
-    long one;
-    if(TakeTheBus()) {  // Request exclusive access to the bus
-        //Read the 2 bytes from  memory.
-        two = fram.read8(address);
-        one = fram.read8(address + 1);
-    }
-    GiveUpTheBus();// Release exclusive access to the bus
-    //Return the recomposed long by using bitshift.
-    return ((two << 0) & 0xFF) + ((one << 8) & 0xFFFF);
-}
-
-void FRAMwrite16(unsigned int address, int value)   // Write 16 bits to FRAM
-{
-    //This function will write a 2 byte (16bit) long to the eeprom at
-    //the specified address to address + 1.
-    //Decomposition from a long to 2 bytes by using bitshift.
-    //One = Most significant -> Four = Least significant byte
-    byte two = (value & 0xFF);
-    byte one = ((value >> 8) & 0xFF);
-    
-    //Write the 2 bytes into the eeprom memory.
-    if (TakeTheBus()) {  // Request exclusive access to the bus
-        fram.write8(address, two);
-        fram.write8(address + 1, one);
-    }
-    GiveUpTheBus();// Release exclusive access to the bus
-}
-
-void FRAMwrite32(int address, unsigned long value)  // Write 32 bits to FRAM
-{
-    //This function will write a 4 byte (32bit) long to the eeprom at
-    //the specified address to address + 3.
-    //Decomposition from a long to 4 bytes by using bitshift.
-    //One = Most significant -> Four = Least significant byte
-    
-    byte four = (value & 0xFF);
-    byte three = ((value >> 8) & 0xFF);
-    byte two = ((value >> 16) & 0xFF);
-    byte one = ((value >> 24) & 0xFF);
-    
-    //Write the 4 bytes into the eeprom memory.
-    if (TakeTheBus()) {  // Request exclusive access to the bus
-        fram.write8(address, four);
-        fram.write8(address + 1, three);
-        fram.write8(address + 2, two);
-        fram.write8(address + 3, one);
-    }
-    GiveUpTheBus();// Release exclusive access to the bus
-}
-
-unsigned long FRAMread32(unsigned long address) // Read 32 bits from FRAM
-{
-    long four;
-    long three;
-    long two;
-    long one;
-    if(TakeTheBus()) {  // Request exclusive access to the bus
-        //Read the 4 bytes from memory.
-        four = fram.read8(address);
-        three = fram.read8(address + 1);
-        two = fram.read8(address + 2);
-        one = fram.read8(address + 3);
-    }
-    GiveUpTheBus();// Release exclusive access to the bus
-    //Return the recomposed long by using bitshift.
-    return ((four << 0) & 0xFF) + ((three << 8) & 0xFFFF) + ((two << 16) & 0xFFFFFF) + ((one << 24) & 0xFFFFFFFF);
-}
-
-
-void ResetFRAM()  // This will reset the FRAM - set the version and preserve delay and sensitivity
-{
-    // Note - have to hard code the size here due to this issue - http://www.microchip.com/forums/m501193.aspx
-    Serial.println("Resetting Memory");
-    for (unsigned long i=3; i < 32768; i++) {  // Start at 3 to not overwrite debounce and sensitivity
-        FRAMwrite8(i,0x0);
-        //Serial.println(i);
-        if (i==8192) Serial.println(F("25% done"));
-        if (i==16384) Serial.println(F("50% done"));
-        if (i==(24576)) Serial.println(F("75% done"));
-        if (i==32767) Serial.println(F("Done"));
-    }
-    FRAMwrite8(VERSIONADDR,VERSIONNUMBER);  // Reset version to match #define value for sketch
-}
-
 
 void enable32Khz(uint8_t enable)  // Need to turn on the 32k square wave for bus moderation
 {
@@ -1081,9 +944,3 @@ void enable32Khz(uint8_t enable)  // Need to turn on the 32k square wave for bus
     Wire.endTransmission();
 }
 
-void NonBlockingDelay(int millisDelay)  // Used for a non-blocking delay
-{
-    unsigned long commandTime = millis();
-    while (millis() <= millisDelay + commandTime) { }
-    return;
-}
