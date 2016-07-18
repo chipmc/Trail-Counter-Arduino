@@ -82,8 +82,8 @@
 #endif
 
 //Time Period Deinifinitions - used for debugging
-#define HOURLYPERIOD t.hour()   // Normally t.hour() but can use t.minute() for debugging
-#define DAILYPERIOD t.day() // Normally t.day() but can use t.minute() or t.hour() for debugging
+#define HOURLYPERIOD hour(t)   // Normally t.hour() but can use t.minute() for debugging
+#define DAILYPERIOD day(t) // Normally t.day() but can use t.minute() or t.hour() for debugging
 
 //These defines let me change the memory map without hunting through the whole program
 #define VERSIONNUMBER 5      // Increment this number each time the memory map is changed
@@ -123,16 +123,15 @@
 #include "i2c.h"                // not the wire library, can't use pull-ups
 #include <avr/sleep.h>          // For Sleep Code
 #include "MAX17043.h"           // Drives the LiPo Fuel Gauge
-#include "Wire.h"               // For the LiPo Fuel Gauge
-#include "RTClib.h"             // Adafruit's library which includes the DS3231
-#include "Time.h"             // This library brings Unix Time capabilities
+#include "Wire.h"               //http://arduino.cc/en/Reference/Wire (included with Arduino IDE)
+#include <DS3232RTC.h>          //http://github.com/JChristensen/DS3232RTC
+#include <Time.h>               //http://www.arduino.cc/playground/Code/Time
 #include "Adafruit_FRAM_I2C.h"  // Library for FRAM functions
-#include "FRAMcommon.h"     // Where I put all the common FRAM read and write extensions
+#include "FRAMcommon.h"         // Where I put all the common FRAM read and write extensions
 
 
 // Prototypes
 // Prototypes From the included libraries
-RTC_DS3231 rtc;                               // Init the DS3231
 MAX17043 batteryMonitor;                      // Init the Fuel Gauge
 
 // Prototypes for i2c functions
@@ -146,30 +145,28 @@ void initMMA8452(byte fsr, byte dataRate);  // Initialize the MMA8452
 // Prototypes for General Functions
 void StartStopTest(boolean startTest); // Since the test can be started from the serial menu or the Simblee - created a function
 void BlinkForever(); // Ends execution
-void LogHourlyEvent(DateTime LogTime); // Log Hourly Event()
-void LogDailyEvent(DateTime LogTime); // Log Daily Event()
+void LogHourlyEvent(time_t LogTime); // Log Hourly Event()
+void LogDailyEvent(time_t LogTime); // Log Daily Event()
 void CheckForBump(); // Check for bump
 void WakeUpNow();      // here the interrupt is handled after wakeup
 void sleepNow();  // Puts the Arduino to Sleep
 void NonBlockingDelay(int millisDelay);  // Used for a non-blocking delay
+int freeRam ();  // Debugging code, to check usage of RAM
+
 
 
 // Prototypes for Date and Time Functions
 void SetTimeDate(); // Sets the RTC date and time
 void PrintTimeDate(); // Prints to the console
-unsigned long toUnixTime(DateTime ut); //Converts to Unix time for storage
-void toArduinoTime(unsigned long unixT); //Converts to Arduino Time for use with the RTC and program
+void toArduinoTime(time_t unixT); //Converts to Arduino Time for use with the RTC and program
 
 
 // FRAM and Unix time variables
 unsigned int  framAddr;
-unsigned long unixTime;
-// unsigned long time;
-TimeElements currentTime;
-DateTime t;
+tmElements_t tm;
+time_t t;
 int lastHour = 0;  // For recording the startup values
 int lastDate = 0;
-char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 unsigned int hourlyPersonCount = 0;  // hourly counter
 unsigned int dailyPersonCount = 0;   //  daily counter
 byte currentHourlyPeriod;    // This is where we will know if the period changed
@@ -189,7 +186,7 @@ unsigned long lastCheckedControlRegister;
 int controlRegisterDelay = 1000;
 
 
-// Accelerometer
+// Accelerometer Variables
 const byte accelFullScaleRange = 2;  // Sets full-scale range to +/-2, 4, or 8g. Used to calc real g values.
 const byte dataRate = 5;             // output data rate - 0=800Hz, 1=400, 2=200, 3=100, 4=50, 5=12.5, 6=6.25, 7=1.56
 byte accelInputValue = 1;            // Raw sensitivity input (0-9);
@@ -228,21 +225,12 @@ void setup()
         batteryMonitor.reset();               // Initialize the battery monitor
         batteryMonitor.quickStart();
     
-        if (! rtc.begin()) {                    // Not sure if this is working
-            Serial.println("Couldn't find RTC");
-            BlinkForever();
-        }
-        
+        setSyncProvider(RTC.get);
+        Serial.print(F("RTC Sync"));
+        if (timeStatus() != timeSet) Serial.println(F(" FAIL!"));
+    
         enable32Khz(1); // turns on the 32k squarewave - need to test effect on power
-        
-        if (rtc.lostPower()) {
-            Serial.println("RTC lost power, lets set the time!");
-            // following line sets the RTC to the date & time this sketch was compiled
-            rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-            // This line sets the RTC with an explicit date & time, for example to set
-            // January 21, 2014 at 3am you would call:
-            // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
-        }
+    
         
         if (fram.begin()) {  // you can stick the new i2c addr in here, e.g. begin(0x51);
             Serial.println(F("Found I2C FRAM"));
@@ -301,6 +289,11 @@ void setup()
     
     GiveUpTheBus(); // Done!
     
+    Serial.print(F("Free memory: "));
+    Serial.println(freeRam());
+    
+    
+    
 }
 
 // Add loop code
@@ -331,7 +324,7 @@ void loop()
                 Serial.print(F("Current Time:"));
                 PrintTimeDate();  // Give and take the bus are in this function as it gets the current time
                 TakeTheBus();
-                stateOfCharge = batteryMonitor.getSoC();
+                    stateOfCharge = batteryMonitor.getSoC();
                 GiveUpTheBus();
                 Serial.print(F("State of charge: "));
                 Serial.print(stateOfCharge);
@@ -344,6 +337,8 @@ void loop()
                 Serial.println(FRAMread16(CURRENTHOURLYCOUNTADDR));
                 Serial.print(F("Daily count: "));
                 Serial.println(FRAMread16(CURRENTDAILYCOUNTADDR));
+                Serial.print(F("Free memory: "));
+                Serial.println(freeRam());
                 break;
             case '2':     // Set the clock
                 SetTimeDate();
@@ -402,11 +397,11 @@ void loop()
                     if (FRAMread8((HOURLYOFFSET + (i+FRAMread16(HOURLYPOINTERADDR)) % HOURLYCOUNTNUMBER)*WORDSIZE) != 0) {
                         unsigned long unixTime = FRAMread32((HOURLYOFFSET + (i+FRAMread16(HOURLYPOINTERADDR)) % HOURLYCOUNTNUMBER)*WORDSIZE);
                         toArduinoTime(unixTime);
-                        Serial.print(" - ");
+                        Serial.print(F(" - "));
                         Serial.print(FRAMread16(((HOURLYOFFSET + (i+FRAMread16(HOURLYPOINTERADDR)) % HOURLYCOUNTNUMBER)*WORDSIZE)+HOURLYCOUNTOFFSET));
-                        Serial.print("  -  ");
+                        Serial.print(F("  -  "));
                         Serial.print(FRAMread8(((HOURLYOFFSET + (i+FRAMread16(HOURLYPOINTERADDR)) % HOURLYCOUNTNUMBER)*WORDSIZE)+HOURLYBATTOFFSET));
-                        Serial.println("%");
+                        Serial.println(F("%"));
                     }
                 }
                 Serial.println(F("Done"));
@@ -416,13 +411,13 @@ void loop()
                 for (int i=0; i < DAILYCOUNTNUMBER; i++) {
                     if (FRAMread8((DAILYOFFSET + (i+FRAMread8(DAILYPOINTERADDR)) % DAILYCOUNTNUMBER)*WORDSIZE+DAILYCOUNTOFFSET) != 0) {
                         Serial.print(FRAMread8((DAILYOFFSET + (i+FRAMread8(DAILYPOINTERADDR)) % DAILYCOUNTNUMBER)*WORDSIZE));
-                        Serial.print("/");
+                        Serial.print(F("/"));
                         Serial.print(FRAMread8((DAILYOFFSET + (i+FRAMread8(DAILYPOINTERADDR)) % DAILYCOUNTNUMBER)*WORDSIZE+DAILYDATEOFFSET));
-                        Serial.print(" - ");
+                        Serial.print(F(" - "));
                         Serial.print(FRAMread16((DAILYOFFSET + (i+FRAMread8(DAILYPOINTERADDR)) % DAILYCOUNTNUMBER)*WORDSIZE+DAILYCOUNTOFFSET));
-                        Serial.print("  -  ");
+                        Serial.print(F("  -  "));
                         Serial.print(FRAMread8((DAILYOFFSET + (i+FRAMread8(DAILYPOINTERADDR)) % DAILYCOUNTNUMBER)*WORDSIZE+DAILYBATTOFFSET));
-                        Serial.println("%");
+                        Serial.println(F("%"));
                     }
                 }
                 Serial.println(F("Done"));
@@ -443,7 +438,7 @@ void loop()
     if (millis() >= lastCheckedControlRegister + controlRegisterDelay) {
         controlRegisterValue = FRAMread8(CONTROLREGISTER);
         if (controlRegisterValue != oldControlRegisterValue) {       // debugging code 
-            Serial.print("ControlRegisterValue = ");
+            Serial.print(F("ControlRegisterValue = "));
             Serial.println(controlRegisterValue);
             oldControlRegisterValue = controlRegisterValue;
         }
@@ -461,11 +456,11 @@ void loop()
         else if (controlRegisterValue & signalDebounceChange)   // If we changed the debounce value on the Simblee side
         {
             debounce = FRAMread16(DEBOUNCEADDR);
-            Serial.print("Updated debounce value to:");
+            Serial.print(F("Updated debounce value to:"));
             Serial.println(debounce);
             controlRegisterValue &= clearDebounceChange;
             FRAMwrite8(CONTROLREGISTER, controlRegisterValue);
-            Serial.print("Debounce Updated Control Register Value =");
+            Serial.print(F("Debounce Updated Control Register Value ="));
             Serial.println(controlRegisterValue);
         }
         else if (controlRegisterValue & signalSentitivityChange)   // If we changed the debounce value on the Simblee side
@@ -475,24 +470,24 @@ void loop()
                 initMMA8452(accelFullScaleRange, dataRate);  // init the accelerometer if communication is OK
             GiveUpTheBus();
             Serial.println(F("MMA8452Q is online..."));
-            Serial.print("Updated sensitivity value to:");
+            Serial.print(F("Updated sensitivity value to:"));
             Serial.println(accelSensitivity);
             controlRegisterValue &= clearSensitivityChange;
             FRAMwrite8(CONTROLREGISTER, controlRegisterValue);
-            Serial.print("Sensitivty Updated Control Register Value =");
+            Serial.print(F("Sensitivty Updated Control Register Value ="));
             Serial.println(controlRegisterValue);
         }
         else if (((controlRegisterValue & toggleLEDs) >> 3) && !LEDSon)
         {
             digitalWrite(LEDPWR,LOW);
             LEDSon = 1; // This keeps us from entering this conditional until there is a change
-            Serial.println("Turn on the LEDs");
+            Serial.println(F("Turn on the LEDs"));
         }
         else if (!((controlRegisterValue & toggleLEDs) >> 3) && LEDSon)
         {
             digitalWrite(LEDPWR,HIGH);
             LEDSon = 0; // This keeps us from entering this conditional until there is a change
-            Serial.println("Turn off the LEDs");
+            Serial.println(F("Turn off the LEDs"));
         }
     }
 }
@@ -505,7 +500,7 @@ void CheckForBump() // This is where we check to see if an interrupt is set when
         if ((source & 0x08)==0x08) { // We are only interested in the TAP register so read that
             if (millis() >= lastBump + debounce) {
                 TakeTheBus();
-                    t = rtc.now();
+                    t = now();
                 GiveUpTheBus();
                 if (int(HOURLYPERIOD) != currentHourlyPeriod) {
                     LogHourlyEvent(t);
@@ -535,8 +530,7 @@ void CheckForBump() // This is where we check to see if an interrupt is set when
                 FRAMwrite16(CURRENTHOURLYCOUNTADDR, hourlyPersonCount);  // Load Hourly Count to memory
                 dailyPersonCount++;                    // Increment the PersonCount
                 FRAMwrite16(CURRENTDAILYCOUNTADDR, dailyPersonCount);   // Load Daily Count to memory
-                unsigned long unixTime = toUnixTime(t);  // Convert to UNIX Time
-                FRAMwrite32(CURRENTCOUNTSTIME, unixTime);   // Write to FRAM - this is so we know when the last counts were saved
+                FRAMwrite32(CURRENTCOUNTSTIME, int(RTC.get));   // Write to FRAM - this is so we know when the last counts were saved
                 lastBump = millis();              // Reset last bump timer
                 Serial.print(F("Hourly: "));
                 Serial.print(hourlyPersonCount);
@@ -556,17 +550,10 @@ void StartStopTest(boolean startTest)  // Since the test can be started from the
 {
     if (startTest) {
         inTest = 1;
-        Serial.print("Starting Test - CONTROLREGISTER = ");
+        Serial.print(F("Starting Test - CONTROLREGISTER = "));
         Serial.println(FRAMread8(CONTROLREGISTER));
-        //Serial.print("The value of toggleStartStop is:");
-        //Serial.println(toggleStartStop);
-        //Serial.print("The value of controlRegisterValue is:");
-        //Serial.println(controlRegisterValue);
-        //FRAMwrite8(CONTROLREGISTER, toggleStartStop | controlRegisterValue);        // Will result in a start stop bit HIGH
-        //Serial.print("The new value of CONTROLREGISTER is:");
-        //Serial.println(FRAMread8(CONTROLREGISTER));
         TakeTheBus();
-            t = rtc.now();                    // Gets the current time
+            t = RTC.get();                    // Gets the current time
         GiveUpTheBus();
         currentHourlyPeriod = HOURLYPERIOD;   // Sets the hour period for when the count starts (see #defines)
         currentDailyPeriod = DAILYPERIOD;     // And the day  (see #defines)
@@ -591,28 +578,25 @@ void StartStopTest(boolean startTest)  // Since the test can be started from the
     }
     else {
         inTest = 0;
-        Serial.print("Stopping Test since CONTROLREGISTER is:");
+        Serial.print(F("Stopping Test since CONTROLREGISTER is:"));
         Serial.println(FRAMread8(CONTROLREGISTER));
         TakeTheBus();
             source = readRegister(0x22);  // Reads the PULSE_SRC register to reset it
             detachInterrupt(1);           // disables interrupt 1 on pin 3 so the program can execute
-            t = rtc.now();            // Gets the current time
         GiveUpTheBus();
         FRAMwrite16(CURRENTDAILYCOUNTADDR, dailyPersonCount);   // Load Daily Count to memory
         FRAMwrite16(CURRENTHOURLYCOUNTADDR, hourlyPersonCount);  // Load Hourly Count to memory
-        unsigned long unixTime = toUnixTime(t);  // Convert to UNIX Time
-        FRAMwrite32(CURRENTCOUNTSTIME, unixTime);   // Write to FRAM - this is so we know when the last counts were saved
+        FRAMwrite32(CURRENTCOUNTSTIME, int(RTC.get()));   // Write to FRAM - this is so we know when the last counts were saved
         hourlyPersonCount = 0;        // Reset Person Count
         dailyPersonCount = 0;         // Reset Person Count
         Serial.println(F("Test Stopped"));
     }
 }
 
-void LogHourlyEvent(DateTime LogTime) // Log Hourly Event()
+void LogHourlyEvent(time_t LogTime) // Log Hourly Event()
 {
     unsigned long pointer = (HOURLYOFFSET + FRAMread16(HOURLYPOINTERADDR))*WORDSIZE;  // get the pointer from memory and add the offset
-    unsigned long unixTime = toUnixTime(LogTime);  // Convert to UNIX Time
-    FRAMwrite32(pointer, unixTime);   // Write to FRAM - this is the end of the period
+    FRAMwrite32(pointer, int(LogTime));   // Write to FRAM - this is the end of the period
     FRAMwrite16(pointer+HOURLYCOUNTOFFSET,hourlyPersonCount);
     TakeTheBus();
         stateOfCharge = batteryMonitor.getSoC();
@@ -623,11 +607,11 @@ void LogHourlyEvent(DateTime LogTime) // Log Hourly Event()
 }
 
 
-void LogDailyEvent(DateTime LogTime) // Log Daily Event()
+void LogDailyEvent(time_t LogTime) // Log Daily Event()
 {
     int pointer = (DAILYOFFSET + FRAMread8(DAILYPOINTERADDR))*WORDSIZE;  // get the pointer from memory and add the offset
-    FRAMwrite8(pointer,LogTime.month()); // should be time.month
-    FRAMwrite8(pointer+DAILYDATEOFFSET,LogTime.day());  // Write to FRAM - this is the end of the period  - should be time.date
+    FRAMwrite8(pointer,month(LogTime)); // should be time.month
+    FRAMwrite8(pointer+DAILYDATEOFFSET,day(LogTime));  // Write to FRAM - this is the end of the period  - should be time.date
     FRAMwrite16(pointer+DAILYCOUNTOFFSET,dailyPersonCount);
     TakeTheBus();
         stateOfCharge = batteryMonitor.getSoC();
@@ -644,36 +628,39 @@ void SetTimeDate()  // Function to set the date and time from the terminal windo
     while (Serial.available() == 0) {  // Look for char in serial queue and process if found
         continue;
     }
-    int sec = Serial.parseInt();
+    tm.Second = Serial.parseInt();
     Serial.println(F("Enter Minutes (0-59): "));
     while (Serial.available() == 0) {  // Look for char in serial queue and process if found
         continue;
     }
-    int minute = Serial.parseInt();
+    tm.Minute = Serial.parseInt();
     Serial.println(F("Enter Hours (0-23): "));
     while (Serial.available() == 0) {  // Look for char in serial queue and process if found
         continue;
     }
-    int hour = Serial.parseInt();
+    tm.Hour= Serial.parseInt();
     Serial.println(F("Enter Day of the Month (1-31): "));
     while (Serial.available() == 0) {  // Look for char in serial queue and process if found
         continue;
     }
-    int day = Serial.parseInt();
+    tm.Day = Serial.parseInt();
     Serial.println(F("Enter the Month (1-12): "));
     while (Serial.available() == 0) {  // Look for char in serial queue and process if found
         continue;
     }
-    int month = Serial.parseInt();
+    tm.Month = Serial.parseInt();
     Serial.println(F("Enter the Year (0-99): "));
     while (Serial.available() == 0) {  // Look for char in serial queue and process if found
         continue;
     }
-    int year = 2000 + Serial.parseInt();
+    tm.Year = CalendarYrToTm(Serial.parseInt());
+    
+    t= makeTime(tm);
+
+    
     TakeTheBus();
-        rtc.adjust(DateTime(year,month,day,hour, minute, sec));       // This line sets the RTC with an explicit date & time, for example to set
-        // January 21, 2014 at 3am you would call:
-        // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+        RTC.set(t);             //use the time_t value to ensure correct weekday is set
+        setTime(t);
     GiveUpTheBus();
     
 }
@@ -681,21 +668,19 @@ void SetTimeDate()  // Function to set the date and time from the terminal windo
 void PrintTimeDate()  // Prints time and date to the console
 {
     TakeTheBus();
-        DateTime now = rtc.now();
+        time_t now = RTC.get();
     GiveUpTheBus();
-    Serial.print(now.year(), DEC);
+    Serial.print(year(now), DEC);
     Serial.print('/');
-    Serial.print(now.month(), DEC);
+    Serial.print(month(now), DEC);
     Serial.print('/');
-    Serial.print(now.day(), DEC);
-    Serial.print(" (");
-    Serial.print(daysOfTheWeek[now.dayOfTheWeek()]);
-    Serial.print(") ");
-    Serial.print(now.hour(), DEC);
+    Serial.print(day(now), DEC);
+    Serial.print(F(" "));
+    Serial.print(hour(now), DEC);
     Serial.print(':');
-    Serial.print(now.minute(), DEC);
+    Serial.print(minute(now), DEC);
     Serial.print(':');
-    Serial.print(now.second(), DEC);
+    Serial.print(second(now), DEC);
     Serial.println();
 }
 
@@ -877,35 +862,22 @@ void sleepNow()         // here we put the arduino to sleep
     
 }
 
-
-unsigned long toUnixTime(DateTime ut)   // For efficiently storing time in memory
-{
-    TimeElements timeElement;
-    timeElement.Month = ut.month();
-    timeElement.Day = ut.day();
-    timeElement.Year = (ut.year()-1970);
-    timeElement.Hour = ut.hour();
-    timeElement.Minute = ut.minute();
-    timeElement.Second = ut.second();
-    return makeTime(timeElement);
-}
-
-void toArduinoTime(unsigned long unixT) // Puts time in format for reporting
+void toArduinoTime(time_t unixT) // Puts time in format for reporting
 {
     TimeElements timeElement;
     breakTime(unixT, timeElement);
     Serial.print(timeElement.Month);
-    Serial.print("/");
+    Serial.print(F("/"));
     Serial.print(timeElement.Day);
-    Serial.print("/");
+    Serial.print(F("/"));
     Serial.print(1970+timeElement.Year);
-    Serial.print(" ");
+    Serial.print(F(" "));
     Serial.print(timeElement.Hour);
-    Serial.print(":");
-    if(timeElement.Minute < 10) Serial.print("0");
+    Serial.print(F(":"));
+    if(timeElement.Minute < 10) Serial.print(F("0"));
     Serial.print(timeElement.Minute);
-    Serial.print(":");
-    if(timeElement.Second < 10) Serial.print("0");
+    Serial.print(F(":"));
+    if(timeElement.Second < 10) Serial.print(F("0"));
     Serial.print(timeElement.Second);
 }
 
@@ -942,5 +914,13 @@ void enable32Khz(uint8_t enable)  // Need to turn on the 32k square wave for bus
     Wire.write(0x0F);
     Wire.write(sreg);
     Wire.endTransmission();
+}
+
+int freeRam ()  // Debugging code, to check usage of RAM
+{
+    // Example Call: Serial.println(freeRam());
+    extern int __heap_start, *__brkval;
+    int v;
+    return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
 }
 

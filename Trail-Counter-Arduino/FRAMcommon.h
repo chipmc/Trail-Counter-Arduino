@@ -148,7 +148,7 @@ void ResetFRAM()  // This will reset the FRAM - set the version and preserve del
 
 boolean TakeTheBus()
 {
-    //Serial.print("Simblee: Asking for the bus...");
+    //Serial.print(F(Asking for the bus..."));
     if (clockHighorLow) {
         while(digitalRead(The32kPin)) {} // The Simblee will only read the Talk line when SQW pin goes low
     }
@@ -159,7 +159,7 @@ boolean TakeTheBus()
     }
     pinMode(TalkPin,OUTPUT);        // Change to output
     digitalWrite(TalkPin,LOW);      // Claim the bus by bringing the TalkPin LOW
-    //Serial.println("..We have the bus");
+    //Serial.println(F("..We have the bus"));
     return 1;                       // We have it
 }
 

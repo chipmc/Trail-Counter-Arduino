@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		81289F781CE16A8400530EC0 /* Trail_Counter_Arduino.ino in Sources */ = {isa = PBXBuildFile; fileRef = 81F89F781CE16A8400530EC0 /* Trail_Counter_Arduino.ino */; };
+		813364551D3D18A400BCF105 /* Makefile in Sources */ = {isa = PBXBuildFile; fileRef = 81F89EBA1CE16A8300530EC0 /* Makefile */; };
 		81F89EB91CE16A8300530EC0 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 81F89EB81CE16A8300530EC0 /* main.cpp */; };
 		AA2A160510090246AA000006 /* abi.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAAA160510090246AA000006 /* abi.cpp */; };
 		AA2A160510090246AA000007 /* Arduino.h in Sources */ = {isa = PBXBuildFile; fileRef = AAAA160510090246AA000007 /* Arduino.h */; };
@@ -7563,6 +7564,7 @@
 				AA2A160510090246AA0004FF /* SdFatUtil.h in Sources */,
 				AA2A160510090246AA000500 /* SdFile.cpp in Sources */,
 				AA2A160510090246AA000501 /* SdFile.h in Sources */,
+				813364551D3D18A400BCF105 /* Makefile in Sources */,
 				AA2A160510090246AA000502 /* SdInfo.h in Sources */,
 				AA2A160510090246AA000503 /* SdSpi.h in Sources */,
 				AA2A160510090246AA000504 /* SdSpiArduino.cpp in Sources */,

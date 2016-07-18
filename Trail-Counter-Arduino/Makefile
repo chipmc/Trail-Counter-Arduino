@@ -42,7 +42,7 @@ APP_LIBS_LIST = Wire
 #	RunningAverage SdFat Servo SFE_CC3000 SFE_MicroOLED SoftI2CMaster 
 #	SPIFlash Temboo Time TinyWireM Twitter U8glib Ubidots 
 #
-USER_LIBS_LIST = MAX17043 RTClib Adafruit_FRAM_I2C Time
+USER_LIBS_LIST = MAX17043 Adafruit_FRAM_I2C Time Timezone DS3232RTC
 
 # List local libraries here
 # default = empty = all
@@ -155,6 +155,34 @@ MAKEFILE_PATH  = $(CURRENT_DIR)/Makefiles
 UTILITIES_PATH = $(CURRENT_DIR)/Utilities
 
 include $(MAKEFILE_PATH)/Step1.mk
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
