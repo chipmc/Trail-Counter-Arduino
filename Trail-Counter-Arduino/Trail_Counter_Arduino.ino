@@ -82,25 +82,24 @@
 #endif
 
 //Time Period Deinifinitions - used for debugging
-#define HOURLYPERIOD hour(t)   // Normally t.hour() but can use t.minute() for debugging
-#define DAILYPERIOD day(t) // Normally t.day() but can use t.minute() or t.hour() for debugging
+#define HOURLYPERIOD hour(t)   // Normally hour(t) but can use minute() for debugging
+#define DAILYPERIOD day(t) // Normally day(t) but can use minute() or hour() for debugging
 
 //These defines let me change the memory map without hunting through the whole program
-#define VERSIONNUMBER 5      // Increment this number each time the memory map is changed
+#define VERSIONNUMBER 6      // Increment this number each time the memory map is changed
 #define WORDSIZE 8            // For the Word size
 #define PAGESIZE 4096         // Memory size in bytes / word size - 256kb FRAM
 // First Word - 8 bytes for setting global values
 #define DAILYOFFSET 2        // First word of daily counts
-#define HOURLYOFFSET 16        // First word of hourly counts (remember we start counts at 1)
-#define DAILYCOUNTNUMBER 14    // used in modulo calculations - sets the # of days stored
-#define HOURLYCOUNTNUMBER 4078 // used in modulo calculations - sets the # of hours stored - 256k (4096-14-2)
+#define HOURLYOFFSET 32        // First word of hourly counts (remember we start counts at 1)
+#define DAILYCOUNTNUMBER 30    // used in modulo calculations - sets the # of days stored
+#define HOURLYCOUNTNUMBER 4064 // used in modulo calculations - sets the # of hours stored - 256k (4096-14-2)
 #define VERSIONADDR 0x0       // Memory Locations By Name not Number
 #define SENSITIVITYADDR 0x1   // For the 1st Word locations
 #define DEBOUNCEADDR 0x2        // Two bytes for debounce
-#define DAILYPOINTERADDR 0x4
+#define DAILYPOINTERADDR 0x4    // One byte for daily pointer
 #define HOURLYPOINTERADDR 0x5   // Two bytes for hourly pointer
 #define CONTROLREGISTER 0x7     // This is the control register acted on by both Simblee and Arduino
-
 //Second Word - 8 bytes for storing current counts
 #define CURRENTHOURLYCOUNTADDR 0x8
 #define CURRENTDAILYCOUNTADDR 0xA
@@ -123,9 +122,9 @@
 #include "i2c.h"                // not the wire library, can't use pull-ups
 #include <avr/sleep.h>          // For Sleep Code
 #include "MAX17043.h"           // Drives the LiPo Fuel Gauge
-#include "Wire.h"               //http://arduino.cc/en/Reference/Wire (included with Arduino IDE)
-#include <DS3232RTC.h>          //http://github.com/JChristensen/DS3232RTC
-#include <Time.h>               //http://www.arduino.cc/playground/Code/Time
+#include <Wire.h>               //http://arduino.cc/en/Reference/Wire (included with Arduino IDE)
+#include "DS3232RTC.h"          //http://github.com/JChristensen/DS3232RTC
+#include "Time.h"               //http://www.arduino.cc/playground/Code/Time
 #include "Adafruit_FRAM_I2C.h"  // Library for FRAM functions
 #include "FRAMcommon.h"         // Where I put all the common FRAM read and write extensions
 
@@ -203,9 +202,11 @@ unsigned long lastBump = 0;    // set the time of an event
 int ledState = LOW;            // variable used to store the last LED status, to toggle the light
 int delaySleep = 3000;         // Wait until going back to sleep so we can enter commands
 int menuChoice=0;              // Menu Selection
-boolean refreshMenu = 1;       //  Tells whether to write the menu
-boolean inTest = 0;            // Are we in a test or not
-boolean LEDSon = 0;             // Are the LEDs on or off
+boolean refreshMenu = true;       //  Tells whether to write the menu
+boolean inTest = false;            // Are we in a test or not
+boolean LEDSon = false;             // Are the LEDs on or off
+int numberHourlyDataPoints;   // How many hourly counts are there
+int numberDailyDataPoints;   // How many daily counts are there
 
 // Add setup code
 void setup()
@@ -224,22 +225,21 @@ void setup()
     TakeTheBus(); // Need th i2c bus for initializations
         batteryMonitor.reset();               // Initialize the battery monitor
         batteryMonitor.quickStart();
-    
         setSyncProvider(RTC.get);
         Serial.print(F("RTC Sync"));
-        if (timeStatus() != timeSet) Serial.println(F(" FAIL!"));
-    
+        if (timeStatus() != timeSet) {
+            Serial.println(F(" time sync fail!"));
+            BlinkForever();
+        }
         enable32Khz(1); // turns on the 32k squarewave - need to test effect on power
     
-        
         if (fram.begin()) {  // you can stick the new i2c addr in here, e.g. begin(0x51);
             Serial.println(F("Found I2C FRAM"));
         } else {
             Serial.println(F("No I2C FRAM found ... check your connections"));
             BlinkForever();
         }
-    GiveUpTheBus(); // Done with i2c initializations
-    // Arduino gives up the bus here.
+    GiveUpTheBus(); // Done with i2c initializations Arduino gives up the bus here.
     
     
     if (FRAMread8(VERSIONADDR) != VERSIONNUMBER) {  // Check to see if the memory map in the sketch matches the data on the chip
@@ -273,25 +273,23 @@ void setup()
     LEDSon = 1;
     
     TakeTheBus();  // Need to initialize the accelerometer
-    // Read the WHO_AM_I register of the Accelerometer, this is a good test of communication
-    byte c = readRegister(0x0D);  // Read WHO_AM_I register
-    if (c == 0x2A) // WHO_AM_I should always be 0x2A
-    {
-        initMMA8452(accelFullScaleRange, dataRate);  // init the accelerometer if communication is OK
-        Serial.println(F("MMA8452Q is online..."));
-    }
-    else
-    {
-        Serial.print(F("Could not connect to MMA8452Q: 0x"));
-        Serial.println(c, HEX);
-        BlinkForever() ; // Loop forever if communication doesn't happen
-    }
-    
+        // Read the WHO_AM_I register of the Accelerometer, this is a good test of communication
+        byte c = readRegister(0x0D);  // Read WHO_AM_I register
+        if (c == 0x2A) // WHO_AM_I should always be 0x2A
+        {
+            initMMA8452(accelFullScaleRange, dataRate);  // init the accelerometer if communication is OK
+            Serial.println(F("MMA8452Q is online..."));
+        }
+        else
+        {
+            Serial.print(F("Could not connect to MMA8452Q: 0x"));
+            Serial.println(c, HEX);
+            BlinkForever() ; // Loop forever if communication doesn't happen
+        }
     GiveUpTheBus(); // Done!
     
     Serial.print(F("Free memory: "));
     Serial.println(freeRam());
-    
     
     
 }
@@ -392,40 +390,40 @@ void loop()
                 }
                 break;
             case '8':   // Dump the hourly data to the monitor
+                numberHourlyDataPoints = FRAMread16(HOURLYPOINTERADDR);
                 Serial.println(F("Hour Ending -   Count  - Battery %"));
-                for (int i=0; i < HOURLYCOUNTNUMBER; i++) {
-                    if (FRAMread8((HOURLYOFFSET + (i+FRAMread16(HOURLYPOINTERADDR)) % HOURLYCOUNTNUMBER)*WORDSIZE) != 0) {
-                        unsigned long unixTime = FRAMread32((HOURLYOFFSET + (i+FRAMread16(HOURLYPOINTERADDR)) % HOURLYCOUNTNUMBER)*WORDSIZE);
-                        toArduinoTime(unixTime);
-                        Serial.print(F(" - "));
-                        Serial.print(FRAMread16(((HOURLYOFFSET + (i+FRAMread16(HOURLYPOINTERADDR)) % HOURLYCOUNTNUMBER)*WORDSIZE)+HOURLYCOUNTOFFSET));
-                        Serial.print(F("  -  "));
-                        Serial.print(FRAMread8(((HOURLYOFFSET + (i+FRAMread16(HOURLYPOINTERADDR)) % HOURLYCOUNTNUMBER)*WORDSIZE)+HOURLYBATTOFFSET));
-                        Serial.println(F("%"));
-                    }
+                for (int i=numberHourlyDataPoints; i > 0; i--) {
+                    int address = (HOURLYOFFSET + (numberHourlyDataPoints - i) % HOURLYCOUNTNUMBER)*WORDSIZE;
+                    unsigned long unixTime = FRAMread32(address);
+                    toArduinoTime(unixTime);
+                    Serial.print(F(" - "));
+                    Serial.print(FRAMread16(address+HOURLYCOUNTOFFSET));
+                    Serial.print(F("  -  "));
+                    Serial.print(FRAMread8(address+HOURLYBATTOFFSET));
+                    Serial.println(F("%"));
                 }
                 Serial.println(F("Done"));
                 break;
             case '9':  // Download the daily counts
+                numberDailyDataPoints = FRAMread8(DAILYPOINTERADDR);
                 Serial.println(F("Date - Count - Battery %"));
-                for (int i=0; i < DAILYCOUNTNUMBER; i++) {
-                    if (FRAMread8((DAILYOFFSET + (i+FRAMread8(DAILYPOINTERADDR)) % DAILYCOUNTNUMBER)*WORDSIZE+DAILYCOUNTOFFSET) != 0) {
-                        Serial.print(FRAMread8((DAILYOFFSET + (i+FRAMread8(DAILYPOINTERADDR)) % DAILYCOUNTNUMBER)*WORDSIZE));
-                        Serial.print(F("/"));
-                        Serial.print(FRAMread8((DAILYOFFSET + (i+FRAMread8(DAILYPOINTERADDR)) % DAILYCOUNTNUMBER)*WORDSIZE+DAILYDATEOFFSET));
-                        Serial.print(F(" - "));
-                        Serial.print(FRAMread16((DAILYOFFSET + (i+FRAMread8(DAILYPOINTERADDR)) % DAILYCOUNTNUMBER)*WORDSIZE+DAILYCOUNTOFFSET));
-                        Serial.print(F("  -  "));
-                        Serial.print(FRAMread8((DAILYOFFSET + (i+FRAMread8(DAILYPOINTERADDR)) % DAILYCOUNTNUMBER)*WORDSIZE+DAILYBATTOFFSET));
-                        Serial.println(F("%"));
-                    }
+                for (int i=numberDailyDataPoints; i > 0; i--) {
+                    int address = (DAILYOFFSET + (numberDailyDataPoints - i) % DAILYCOUNTNUMBER)*WORDSIZE;
+                    Serial.print(FRAMread8(address));
+                    Serial.print(F("/"));
+                    Serial.print(FRAMread8(address+DAILYDATEOFFSET));
+                    Serial.print(F(" - "));
+                    Serial.print(FRAMread16(address+DAILYCOUNTOFFSET));
+                    Serial.print(F("  -  "));
+                    Serial.print(FRAMread8(address+DAILYBATTOFFSET));
+                    Serial.println(F("%"));
                 }
                 Serial.println(F("Done"));
                 break;
             default:
                 Serial.println(F("Invalid choice - try again"));
         }
-        Serial.read();
+        Serial.read();  // Clear the serial buffer
     }
     if (inTest == 1) {
         CheckForBump();
@@ -446,12 +444,12 @@ void loop()
         if ((controlRegisterValue & toggleStartStop) >> 2 && !inTest)
         {
             StartStopTest(1);  // If the control says start but we are stopped
-            Serial.println("Starting the test");
+            Serial.println(F("Starting the test"));
         }
         else if (!((controlRegisterValue & toggleStartStop) >> 2) && inTest)
         {
             StartStopTest(0); // If the control bit says stop but we have started
-            Serial.println("Stopping the test");
+            Serial.println(F("Stopping the test"));
         }
         else if (controlRegisterValue & signalDebounceChange)   // If we changed the debounce value on the Simblee side
         {
@@ -480,13 +478,13 @@ void loop()
         else if (((controlRegisterValue & toggleLEDs) >> 3) && !LEDSon)
         {
             digitalWrite(LEDPWR,LOW);
-            LEDSon = 1; // This keeps us from entering this conditional until there is a change
+            LEDSon = true; // This keeps us from entering this conditional until there is a change
             Serial.println(F("Turn on the LEDs"));
         }
         else if (!((controlRegisterValue & toggleLEDs) >> 3) && LEDSon)
         {
             digitalWrite(LEDPWR,HIGH);
-            LEDSon = 0; // This keeps us from entering this conditional until there is a change
+            LEDSon = false; // This keeps us from entering this conditional until there is a change
             Serial.println(F("Turn off the LEDs"));
         }
     }
@@ -500,7 +498,7 @@ void CheckForBump() // This is where we check to see if an interrupt is set when
         if ((source & 0x08)==0x08) { // We are only interested in the TAP register so read that
             if (millis() >= lastBump + debounce) {
                 TakeTheBus();
-                    t = now();
+                    t = RTC.get();
                 GiveUpTheBus();
                 if (int(HOURLYPERIOD) != currentHourlyPeriod) {
                     LogHourlyEvent(t);
@@ -530,7 +528,7 @@ void CheckForBump() // This is where we check to see if an interrupt is set when
                 FRAMwrite16(CURRENTHOURLYCOUNTADDR, hourlyPersonCount);  // Load Hourly Count to memory
                 dailyPersonCount++;                    // Increment the PersonCount
                 FRAMwrite16(CURRENTDAILYCOUNTADDR, dailyPersonCount);   // Load Daily Count to memory
-                FRAMwrite32(CURRENTCOUNTSTIME, int(RTC.get));   // Write to FRAM - this is so we know when the last counts were saved
+                FRAMwrite32(CURRENTCOUNTSTIME, int(t));   // Write to FRAM - this is so we know when the last counts were saved
                 lastBump = millis();              // Reset last bump timer
                 Serial.print(F("Hourly: "));
                 Serial.print(hourlyPersonCount);
@@ -549,7 +547,7 @@ void CheckForBump() // This is where we check to see if an interrupt is set when
 void StartStopTest(boolean startTest)  // Since the test can be started from the serial menu or the Simblee - created a function
 {
     if (startTest) {
-        inTest = 1;
+        inTest = true;
         Serial.print(F("Starting Test - CONTROLREGISTER = "));
         Serial.println(FRAMread8(CONTROLREGISTER));
         TakeTheBus();
@@ -559,10 +557,9 @@ void StartStopTest(boolean startTest)  // Since the test can be started from the
         currentDailyPeriod = DAILYPERIOD;     // And the day  (see #defines)
         // Deterimine when the last counts were taken check when starting test to determine if we reload values or start counts over
         unsigned long unixTime = FRAMread32(CURRENTCOUNTSTIME);
-        TimeElements timeElement;
-        breakTime(unixTime, timeElement);
-        lastHour = int(timeElement.Hour);
-        lastDate = int(timeElement.Day);
+        breakTime(unixTime, tm);
+        lastHour = int(tm.Hour);
+        lastDate = int(tm.Day);
         if (currentDailyPeriod == lastDate) {
             Serial.println("Restoring Counts");
             dailyPersonCount = FRAMread16(CURRENTDAILYCOUNTADDR);  // Load Daily Count from memory
@@ -577,16 +574,17 @@ void StartStopTest(boolean startTest)  // Since the test can be started from the
         Serial.println(F("Test Started"));
     }
     else {
-        inTest = 0;
+        inTest = false;
         Serial.print(F("Stopping Test since CONTROLREGISTER is:"));
         Serial.println(FRAMread8(CONTROLREGISTER));
         TakeTheBus();
             source = readRegister(0x22);  // Reads the PULSE_SRC register to reset it
             detachInterrupt(1);           // disables interrupt 1 on pin 3 so the program can execute
+            t = RTC.get();
         GiveUpTheBus();
         FRAMwrite16(CURRENTDAILYCOUNTADDR, dailyPersonCount);   // Load Daily Count to memory
         FRAMwrite16(CURRENTHOURLYCOUNTADDR, hourlyPersonCount);  // Load Hourly Count to memory
-        FRAMwrite32(CURRENTCOUNTSTIME, int(RTC.get()));   // Write to FRAM - this is so we know when the last counts were saved
+        FRAMwrite32(CURRENTCOUNTSTIME, int(t));   // Write to FRAM - this is so we know when the last counts were saved
         hourlyPersonCount = 0;        // Reset Person Count
         dailyPersonCount = 0;         // Reset Person Count
         Serial.println(F("Test Stopped"));
@@ -668,19 +666,19 @@ void SetTimeDate()  // Function to set the date and time from the terminal windo
 void PrintTimeDate()  // Prints time and date to the console
 {
     TakeTheBus();
-        time_t now = RTC.get();
+        t = RTC.get();
     GiveUpTheBus();
-    Serial.print(year(now), DEC);
+    Serial.print(year(t), DEC);
     Serial.print('/');
-    Serial.print(month(now), DEC);
+    Serial.print(month(t), DEC);
     Serial.print('/');
-    Serial.print(day(now), DEC);
+    Serial.print(day(t), DEC);
     Serial.print(F(" "));
-    Serial.print(hour(now), DEC);
+    Serial.print(hour(t), DEC);
     Serial.print(':');
-    Serial.print(minute(now), DEC);
+    Serial.print(minute(t), DEC);
     Serial.print(':');
-    Serial.print(second(now), DEC);
+    Serial.print(second(t), DEC);
     Serial.println();
 }
 
@@ -864,7 +862,7 @@ void sleepNow()         // here we put the arduino to sleep
 
 void toArduinoTime(time_t unixT) // Puts time in format for reporting
 {
-    TimeElements timeElement;
+    tmElements_t timeElement;
     breakTime(unixT, timeElement);
     Serial.print(timeElement.Month);
     Serial.print(F("/"));
