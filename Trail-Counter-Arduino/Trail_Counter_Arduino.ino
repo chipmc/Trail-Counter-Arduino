@@ -82,8 +82,8 @@
 #endif
 
 //Time Period Deinifinitions - used for debugging
-#define HOURLYPERIOD hour(t)   // Normally hour(t) but can use minute() for debugging
-#define DAILYPERIOD day(t) // Normally day(t) but can use minute() or hour() for debugging
+#define HOURLYPERIOD second(t)   // Normally hour(t) but can use minute(t) for debugging
+#define DAILYPERIOD minute(t) // Normally day(t) but can use minute(t) or hour(t) for debugging
 
 //These defines let me change the memory map without hunting through the whole program
 #define VERSIONNUMBER 6      // Increment this number each time the memory map is changed
@@ -170,6 +170,7 @@ unsigned int hourlyPersonCount = 0;  // hourly counter
 unsigned int dailyPersonCount = 0;   //  daily counter
 byte currentHourlyPeriod;    // This is where we will know if the period changed
 byte currentDailyPeriod;     // We will keep daily counts as well as period counts
+int countTemp = 0;          // Will use this to see if we should display a day or hours counts
 
 // Variables for the control byte
 // Control Register  (8 - 5 Reserved, 4-Toggle LEDs, 3-Start / Stop Test, 2-Set Sensitivity, 1-Set Delay)
@@ -390,33 +391,39 @@ void loop()
                 }
                 break;
             case '8':   // Dump the hourly data to the monitor
-                numberHourlyDataPoints = FRAMread16(HOURLYPOINTERADDR);
+                numberHourlyDataPoints = FRAMread16(HOURLYPOINTERADDR); // Put this here to reduce FRAM reads
                 Serial.println(F("Hour Ending -   Count  - Battery %"));
-                for (int i=numberHourlyDataPoints; i > 0; i--) {
-                    int address = (HOURLYOFFSET + (numberHourlyDataPoints - i) % HOURLYCOUNTNUMBER)*WORDSIZE;
-                    unsigned long unixTime = FRAMread32(address);
-                    toArduinoTime(unixTime);
-                    Serial.print(F(" - "));
-                    Serial.print(FRAMread16(address+HOURLYCOUNTOFFSET));
-                    Serial.print(F("  -  "));
-                    Serial.print(FRAMread8(address+HOURLYBATTOFFSET));
-                    Serial.println(F("%"));
+                for (int i=0; i < HOURLYCOUNTNUMBER; i++) { // Will walk through the hourly count memory spots - remember pointer is already incremented
+                    unsigned int address = (HOURLYOFFSET + (numberHourlyDataPoints + i) % HOURLYCOUNTNUMBER)*WORDSIZE;
+                    countTemp = FRAMread16(address+HOURLYCOUNTOFFSET);
+                    if (countTemp > 0) {
+                        time_t unixTime = FRAMread32(address);
+                        toArduinoTime(unixTime);
+                        Serial.print(F(" - "));
+                        Serial.print(countTemp);
+                        Serial.print(F("  -  "));
+                        Serial.print(FRAMread8(address+HOURLYBATTOFFSET));
+                        Serial.println(F("%"));
+                    }
                 }
                 Serial.println(F("Done"));
                 break;
-            case '9':  // Download the daily counts
-                numberDailyDataPoints = FRAMread8(DAILYPOINTERADDR);
+            case '9':  // Download all the daily counts
+                numberDailyDataPoints = FRAMread8(DAILYPOINTERADDR);        // Put this here to reduce FRAM reads
                 Serial.println(F("Date - Count - Battery %"));
-                for (int i=numberDailyDataPoints; i > 0; i--) {
-                    int address = (DAILYOFFSET + (numberDailyDataPoints - i) % DAILYCOUNTNUMBER)*WORDSIZE;
-                    Serial.print(FRAMread8(address));
-                    Serial.print(F("/"));
-                    Serial.print(FRAMread8(address+DAILYDATEOFFSET));
-                    Serial.print(F(" - "));
-                    Serial.print(FRAMread16(address+DAILYCOUNTOFFSET));
-                    Serial.print(F("  -  "));
-                    Serial.print(FRAMread8(address+DAILYBATTOFFSET));
-                    Serial.println(F("%"));
+                for (int i=0; i < DAILYCOUNTNUMBER; i++) {                  // Will walk through the 30 daily count memory spots - remember pointer is already incremented
+                    int address = (DAILYOFFSET + (numberDailyDataPoints + i) % DAILYCOUNTNUMBER)*WORDSIZE;      // Here to improve readabiliy - with Wrapping
+                    countTemp = FRAMread16(address+DAILYCOUNTOFFSET);       // This, again, reduces FRAM reads
+                    if (countTemp > 0) {                                    // Since we will step through all 30 - don't print empty results
+                        Serial.print(FRAMread8(address));
+                        Serial.print(F("/"));
+                        Serial.print(FRAMread8(address+DAILYDATEOFFSET));
+                        Serial.print(F(" - "));
+                        Serial.print(countTemp);
+                        Serial.print(F("  -  "));
+                        Serial.print(FRAMread8(address+DAILYBATTOFFSET));
+                        Serial.println(F("%"));
+                    }
                 }
                 Serial.println(F("Done"));
                 break;
@@ -500,35 +507,11 @@ void CheckForBump() // This is where we check to see if an interrupt is set when
                 TakeTheBus();
                     t = RTC.get();
                 GiveUpTheBus();
-                if (int(HOURLYPERIOD) != currentHourlyPeriod) {
-                    LogHourlyEvent(t);
-                    Serial.print(F("Hour: "));
-                    Serial.print(currentHourlyPeriod);
-                    Serial.print(F(" - count: "));
-                    Serial.println(hourlyPersonCount);
-                    hourlyPersonCount = 0;                    // Reset and increment the Person Count in the new period
-                    currentHourlyPeriod = int(HOURLYPERIOD);  // Change the time period
-                    if (currentHourlyPeriod >= 19 ||  currentHourlyPeriod <= 6) {
-                        // Turn things off at night
-                    }
-                    else {
-                        // Turn things  on during the day
-                    }
-                }
-                else if (int(DAILYPERIOD) != currentDailyPeriod) {
-                    LogDailyEvent(t);
-                    Serial.print(F("Day: "));
-                    Serial.print(currentDailyPeriod);
-                    Serial.print(F(" - count: "));
-                    Serial.println(dailyPersonCount);
-                    dailyPersonCount = 0;    // Reset and increment the Person Count in the new period
-                    currentDailyPeriod = int(DAILYPERIOD);  // Change the time period
-                }
                 hourlyPersonCount++;                    // Increment the PersonCount
                 FRAMwrite16(CURRENTHOURLYCOUNTADDR, hourlyPersonCount);  // Load Hourly Count to memory
                 dailyPersonCount++;                    // Increment the PersonCount
                 FRAMwrite16(CURRENTDAILYCOUNTADDR, dailyPersonCount);   // Load Daily Count to memory
-                FRAMwrite32(CURRENTCOUNTSTIME, int(t));   // Write to FRAM - this is so we know when the last counts were saved
+                FRAMwrite32(CURRENTCOUNTSTIME, t);   // Write to FRAM - this is so we know when the last counts were saved
                 lastBump = millis();              // Reset last bump timer
                 Serial.print(F("Hourly: "));
                 Serial.print(hourlyPersonCount);
@@ -538,6 +521,30 @@ void CheckForBump() // This is where we check to see if an interrupt is set when
                 PrintTimeDate();
                 ledState = !ledState;              // toggle the status of the LEDPIN:
                 digitalWrite(REDLED, ledState);    // update the LED pin itself
+                if (HOURLYPERIOD != currentHourlyPeriod) {
+                    LogHourlyEvent(t);
+                    Serial.print(F(" Hour: "));
+                    Serial.print(currentHourlyPeriod);
+                    Serial.print(F(" - count: "));
+                    Serial.println(hourlyPersonCount);
+                    hourlyPersonCount = 0;                    // Reset and increment the Person Count in the new period
+                    currentHourlyPeriod = HOURLYPERIOD;  // Change the time period
+                    if (currentHourlyPeriod >= 19 ||  currentHourlyPeriod <= 6) {
+                        // Turn things off at night
+                    }
+                    else {
+                        // Turn things  on during the day
+                    }
+                }
+                if (DAILYPERIOD != currentDailyPeriod) {
+                    LogDailyEvent(t);
+                    Serial.print(F("Day: "));
+                    Serial.print(currentDailyPeriod);
+                    Serial.print(F(" - count: "));
+                    Serial.println(dailyPersonCount);
+                    dailyPersonCount = 0;    // Reset and increment the Person Count in the new period
+                    currentDailyPeriod = DAILYPERIOD;  // Change the time period
+                }
             }
             readRegister(0x22);  // Reads the PULSE_SRC register to reset it
         }
@@ -556,10 +563,10 @@ void StartStopTest(boolean startTest)  // Since the test can be started from the
         currentHourlyPeriod = HOURLYPERIOD;   // Sets the hour period for when the count starts (see #defines)
         currentDailyPeriod = DAILYPERIOD;     // And the day  (see #defines)
         // Deterimine when the last counts were taken check when starting test to determine if we reload values or start counts over
-        unsigned long unixTime = FRAMread32(CURRENTCOUNTSTIME);
+        time_t unixTime = FRAMread32(CURRENTCOUNTSTIME);
         breakTime(unixTime, tm);
-        lastHour = int(tm.Hour);
-        lastDate = int(tm.Day);
+        lastHour = tm.Hour;
+        lastDate = tm.Day;
         if (currentDailyPeriod == lastDate) {
             Serial.println("Restoring Counts");
             dailyPersonCount = FRAMread16(CURRENTDAILYCOUNTADDR);  // Load Daily Count from memory
@@ -584,7 +591,7 @@ void StartStopTest(boolean startTest)  // Since the test can be started from the
         GiveUpTheBus();
         FRAMwrite16(CURRENTDAILYCOUNTADDR, dailyPersonCount);   // Load Daily Count to memory
         FRAMwrite16(CURRENTHOURLYCOUNTADDR, hourlyPersonCount);  // Load Hourly Count to memory
-        FRAMwrite32(CURRENTCOUNTSTIME, int(t));   // Write to FRAM - this is so we know when the last counts were saved
+        FRAMwrite32(CURRENTCOUNTSTIME, t);   // Write to FRAM - this is so we know when the last counts were saved
         hourlyPersonCount = 0;        // Reset Person Count
         dailyPersonCount = 0;         // Reset Person Count
         Serial.println(F("Test Stopped"));
@@ -593,8 +600,9 @@ void StartStopTest(boolean startTest)  // Since the test can be started from the
 
 void LogHourlyEvent(time_t LogTime) // Log Hourly Event()
 {
-    unsigned long pointer = (HOURLYOFFSET + FRAMread16(HOURLYPOINTERADDR))*WORDSIZE;  // get the pointer from memory and add the offset
-    FRAMwrite32(pointer, int(LogTime));   // Write to FRAM - this is the end of the period
+    Serial.print("Logging an Hourly Event - ");
+    unsigned int pointer = (HOURLYOFFSET + FRAMread16(HOURLYPOINTERADDR))*WORDSIZE;  // get the pointer from memory and add the offset
+    FRAMwrite32(pointer, LogTime);   // Write to FRAM - this is the end of the period
     FRAMwrite16(pointer+HOURLYCOUNTOFFSET,hourlyPersonCount);
     TakeTheBus();
         stateOfCharge = batteryMonitor.getSoC();
@@ -607,6 +615,7 @@ void LogHourlyEvent(time_t LogTime) // Log Hourly Event()
 
 void LogDailyEvent(time_t LogTime) // Log Daily Event()
 {
+    Serial.print("Logging a Daily Event - ");
     int pointer = (DAILYOFFSET + FRAMread8(DAILYPOINTERADDR))*WORDSIZE;  // get the pointer from memory and add the offset
     FRAMwrite8(pointer,month(LogTime)); // should be time.month
     FRAMwrite8(pointer+DAILYDATEOFFSET,day(LogTime));  // Write to FRAM - this is the end of the period  - should be time.date
