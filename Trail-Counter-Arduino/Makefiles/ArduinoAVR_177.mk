@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Dec 28, 2015 release 4.1.4
+# Last update: Jul 02, 2016 release 4.5.7
 
 
 
@@ -159,13 +159,15 @@ APP_LIBS_LOCK = 1
 USB_VID     := $(call PARSE_BOARD,$(BOARD_TAG),build.vid)
 USB_PID     := $(call PARSE_BOARD,$(BOARD_TAG),build.pid)
 USB_PRODUCT := $(call PARSE_BOARD,$(BOARD_TAG),build.usb_product)
+USB_VENDOR  := $(call PARSE_BOARD,$(BOARD_TAG),build.usb_manufacturer)
 
 ifneq ($(USB_VID),)
-USB_FLAGS    = -DUSB_VID=$(USB_VID)
-USB_FLAGS   += -DUSB_PID=$(USB_PID)
-USB_FLAGS   += -DUSBCON
-USB_FLAGS   += -DUSB_MANUFACTURER=''
-USB_FLAGS   += -DUSB_PRODUCT='$(USB_PRODUCT)'
+    USB_FLAGS    = -DUSB_VID=$(USB_VID)
+    USB_FLAGS   += -DUSB_PID=$(USB_PID)
+    USB_FLAGS   += -DUSBCON
+    USB_FLAGS   += -DUSB_MANUFACTURER=''
+    USB_FLAGS   += -DUSB_MANUFACTURER='$(USB_VENDOR)'
+    USB_FLAGS   += -DUSB_PRODUCT='$(USB_PRODUCT)'
 endif
 
 # Arduino Leonardo serial 1200 reset

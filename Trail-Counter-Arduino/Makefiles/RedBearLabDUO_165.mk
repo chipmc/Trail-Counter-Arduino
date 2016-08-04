@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Apr 04, 2016 release 4.4.4
+# Last update: Jun 22, 2016 release 5.0.5
 
 
 include $(MAKEFILE_PATH)/About.mk
@@ -22,7 +22,28 @@ APPLICATION_PATH := $(REDBEARLAB_DUO_PATH)
 PLATFORM_VERSION := Duo $(REDBEARLAB_DUO_RELEASE) for Arduino $(ARDUINO_CC_RELEASE)
 
 HARDWARE_PATH     = $(APPLICATION_PATH)/hardware/STM32F2/$(REDBEARLAB_DUO_RELEASE)
-TOOL_CHAIN_PATH   = $(APPLICATION_PATH)/tools/arm-none-eabi-gcc/$(DUO_GCC_ARM_RELEASE)
+
+# Arduino IDE / RedBear Duo Conflict
+# ----------------------------------
+# http://discuss.redbear.cc/t/arduino-zero-redbear-duo-conflict/274
+# http://forum.arduino.cc/index.php?topic=391429.msg2698429
+#
+# 1. Rename folder
+#   ~/Library/Arduino15/packages/RedBear/tools/arm-none-eabi-gcc
+# to
+#   ~/Library/Arduino15/packages/RedBear/tools/arm-none-eabi-gcc-redbear
+# 2.Edit
+#   ~/Library/Arduino15/packages/RedBear/hardware/STM32F2/0.2.7/platform.txt line 8
+# and change
+#   compiler.path={runtime.tools.arm-none-eabi-gcc-4.9-2015-q3.path}/bin/
+# to
+#   compiler.path={runtime.tools.arm-none-eabi-gcc-redbear-4.9-2015-q3.path}/bin/
+#
+ifneq ($(wildcard $(APPLICATION_PATH)/tools/arm-none-eabi-gcc/*),)
+    TOOL_CHAIN_PATH   = $(APPLICATION_PATH)/tools/arm-none-eabi-gcc/$(DUO_GCC_ARM_RELEASE)
+else
+    TOOL_CHAIN_PATH   = $(APPLICATION_PATH)/tools/arm-none-eabi-gcc-redbear/$(DUO_GCC_ARM_RELEASE)
+endif
 OTHER_TOOLS_PATH  = $(APPLICATION_PATH)/tools/bossac/1.3a-arduino
 
 BUILD_CORE       = RedBear_Duo
@@ -99,11 +120,15 @@ rbd1000   += $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%/src/utility,$(A
 rbd1000   += $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%/src/arch/$(BUILD_CORE),$(APP_LIBS_LIST)))
 rbd1000   += $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%/src/$(BUILD_CORE),$(APP_LIBS_LIST)))
 rbd1000   += $(HARDWARE_PATH)/libraries/RedBear_Duo/src
+rbd1000   += $(HARDWARE_PATH)/libraries/RedBear_Duo/src/include
+rbd1000   += $(HARDWARE_PATH)/libraries/RedBear_Duo/src/src
+rbd1000   += $(HARDWARE_PATH)/libraries/RedBear_Duo/src/src/Internals
 rbd1000   += $(HARDWARE_PATH)/libraries/RedBear_Duo/src/utility
 
 APP_LIB_CPP_SRC = $(foreach dir,$(rbd1000),$(wildcard $(dir)/*.cpp)) # */
 APP_LIB_C_SRC   = $(foreach dir,$(rbd1000),$(wildcard $(dir)/*.c)) # */
 APP_LIB_S_SRC   = $(foreach dir,$(rbd1000),$(wildcard $(dir)/*.S)) # */
+APP_LIB_IPP_SRC = $(foreach dir,$(rbd1000),$(wildcard $(dir)/*.ipp)) # */
 APP_LIB_H_SRC   = $(foreach dir,$(rbd1000),$(wildcard $(dir)/*.h)) # */
 
 APP_LIB_OBJS     = $(patsubst $(APPLICATION_PATH)/%.cpp,$(OBJDIR)/%.cpp.o,$(APP_LIB_CPP_SRC))
@@ -159,8 +184,8 @@ F_CPU            = $(call PARSE_BOARD,$(BOARD_TAG),build.f_cpu)
 OPTIMISATION     = -Os -g3
 
 INCLUDE_PATH     = $(CORE_LIB_PATH) $(APP_LIB_PATH) $(VARIANT_PATH) $(HARDWARE_PATH)
-INCLUDE_PATH    += $(sort $(dir $(APP_LIB_CPP_SRC) $(APP_LIB_C_SRC) $(APP_LIB_H_SRC)))
-INCLUDE_PATH    += $(sort $(dir $(BUILD_APP_LIB_CPP_SRC) $(BUILD_APP_LIB_C_SRC) $(BUILD_APP_LIB_H_SRC)))
+INCLUDE_PATH    += $(sort $(dir $(APP_LIB_CPP_SRC) $(APP_LIB_C_SRC) $(APP_LIB_H_SRC) $(APP_LIB_IPP_SRC)))
+INCLUDE_PATH    += $(sort $(dir $(BUILD_APP_LIB_CPP_SRC) $(BUILD_APP_LIB_C_SRC) $(BUILD_APP_LIB_H_SRC) $(BUILD_APP_LIB_IPP_SRC)))
 INCLUDE_PATH    += $(OBJDIR)
 
 rbd1200            = $(call PARSE_BOARD,$(BOARD_TAG),build.ble_api_include)
@@ -186,9 +211,9 @@ D_FLAGS        += USBD_VID_SPARK=0x2B04 USBD_PID_DFU=0xD058 USBD_PID_CDC=0xC058
 D_FLAGS        += START_DFU_FLASHER_SERIAL_SPEED=14400 START_YMODEM_FLASHER_SERIAL_SPEED=28800
 D_FLAGS        += START_AVRDUDE_FLASHER_SERIAL_SPEED=19200 RELEASE_BUILD INCLUDE_PLATFORM=1
 D_FLAGS        += USE_STDPERIPH_DRIVER DFU_BUILD_ENABLE USER_FIRMWARE_IMAGE_SIZE=0x40000
-D_FLAGS        += USER_FIRMWARE_IMAGE_LOCATION=0x80C0000 SYSTEM_VERSION_STRING=0.2.3
-D_FLAGS        += MODULAR_FIRMWARE=1 MODULE_FUNCTION=5 MODULE_INDEX=1 MODULE_VERSION=6
-D_FLAGS        += MODULE_DEPENDENCY=4,2,6
+D_FLAGS        += USER_FIRMWARE_IMAGE_LOCATION=0x80C0000 SYSTEM_VERSION_STRING=0.2.4
+D_FLAGS        += MODULAR_FIRMWARE=1 MODULE_FUNCTION=5 MODULE_INDEX=1 MODULE_VERSION=7
+D_FLAGS        += MODULE_DEPENDENCY=4,2,7
 D_FLAGS        += MBED_BUILD_TIMESTAMP=$(shell date +%s)
 
 

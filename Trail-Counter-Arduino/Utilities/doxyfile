@@ -44,7 +44,7 @@ DOXYFILE_ENCODING      = UTF-8
 # title of most generated pages and in a few other places.
 # The default value is: My Project.
 
-PROJECT_NAME           = "Trail-Counter-Arduino Reference Manual"
+PROJECT_NAME           = "___PROJECTNAME___ Reference Manual"
 
 # The PROJECT_NUMBER tag can be used to enter a project or revision number. This
 # could be handy for archiving the generated documentation or if some version
@@ -1257,7 +1257,7 @@ DOCSET_FEEDNAME        = "Doxygen generated documentation for embedXcode"
 # The default value is: org.doxygen.Project.
 # This tag requires that the tag GENERATE_DOCSET is set to YES.
 
-DOCSET_BUNDLE_ID       = embedXcode.doxygen.Trail_Counter_Arduino
+DOCSET_BUNDLE_ID       = embedXcode.doxygen.Trail-Counter-Arduino
 
 # The DOCSET_PUBLISHER_ID tag specifies a string that should uniquely identify
 # the documentation publisher. This should be a reverse domain-name style
@@ -2450,3 +2450,4 @@ GENERATE_LEGEND        = YES
 # This tag requires that the tag HAVE_DOT is set to YES.
 
 DOT_CLEANUP            = YES
+

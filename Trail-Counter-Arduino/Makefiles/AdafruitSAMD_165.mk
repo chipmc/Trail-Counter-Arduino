@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: May 07, 2015 release 4.5.4
+# Last update: Jul 04, 2016 release 4.5.8
 
 
 
@@ -19,13 +19,13 @@ include $(MAKEFILE_PATH)/About.mk
 #
 PLATFORM         := Adafruit
 PLATFORM_TAG      = ARDUINO=10607 EMBEDXCODE=$(RELEASE_NOW) ADAFRUIT
-APPLICATION_PATH := $(ARDUINO_PATH)
+APPLICATION_PATH := $(ARDUINO_CC_PATH)
 PLATFORM_VERSION := SAMD $(ADAFRUIT_SAMD_RELEASE) for Arduino $(ARDUINO_CC_RELEASE)
 
 HARDWARE_PATH     = $(ADAFRUIT_SAMD_PATH)/hardware/samd/$(ADAFRUIT_SAMD_RELEASE)
 TOOL_CHAIN_PATH   = $(ARDUINO_SAMD_PATH)/tools/arm-none-eabi-gcc/4.8.3-2014q1
 CMSIS_PATH        = $(ARDUINO_SAMD_PATH)/tools/CMSIS/4.0.0-atmel
-OTHER_TOOLS_PATH  = $(PACKAGES_PATH)/arduino/tools
+OTHER_TOOLS_PATH  = $(ARDUINO_CC_PACKAGES_PATH)/arduino/tools
 
 BUILD_CORE       = samd
 BOARDS_TXT      := $(HARDWARE_PATH)/boards.txt
@@ -49,8 +49,8 @@ else
     UPLOADER_EXEC    = $(UPLOADER_PATH)/bin/openocd
     UPLOADER_OPTS    = -d2 -s $(UPLOADER_PATH)/share/openocd/scripts/
     UPLOADER_OPTS   += -f $(VARIANT_PATH)/$(call PARSE_BOARD,$(BOARD_TAG),build.openocdscript)
-    UPLOADER_COMMAND = -c telnet_port disabled; program {{$(TARGET_BIN)}} verify reset 0x00002000; shutdown
-    COMMAND_UPLOAD   = $(UPLOADER_EXEC) $(UPLOADER_OPTS) "$(UPLOADER_COMMAND)"
+    UPLOADER_COMMAND = telnet_port disabled; program {{$(TARGET_BIN)}} verify reset 0x00002000; shutdown
+    COMMAND_UPLOAD   = $(UPLOADER_EXEC) $(UPLOADER_OPTS) -c "$(UPLOADER_COMMAND)"
 endif
 
 

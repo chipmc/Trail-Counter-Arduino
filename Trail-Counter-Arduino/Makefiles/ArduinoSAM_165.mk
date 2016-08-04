@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Mar 07, 2016 release 4.3.9
+# Last update: Jul 04, 2016 release 4.5.8
 
 
 
@@ -57,14 +57,28 @@ VARIANT_OBJS        = $(patsubst $(HARDWARE_PATH)/%,$(OBJDIR)/%,$(VARIANT_OBJ_FI
 
 
 #
-# Uploader bossac
-# Tested by Mike Roberts
+# Uploader bossac tested by Mike Roberts
+# Uploader openocd tested by Peter
 #
-UPLOADER          = bossac
-UPLOADER_PATH     = $(OTHER_TOOLS_PATH)/bossac/$(BOSSAC_RELEASE)
-UPLOADER_EXEC     = $(UPLOADER_PATH)/bossac
-UPLOADER_PORT     = $(subst /dev/,,$(AVRDUDE_PORT))
-UPLOADER_OPTS     = -i -d --port=$(UPLOADER_PORT) -U $(call PARSE_BOARD,$(BOARD_TAG),upload.native_usb) -e -w -v -b
+ifeq ($(UPLOADER),openocd)
+# openocd -f interface/cmsis-dap.cfg -f target/at91sam3ax_8x.cfg -c "program embeddedcomputing.bin verify srst_only 0x00080000; shutdown" -d2
+    UPLOADER          = openocd
+#    UPLOADER_PATH    = $(OTHER_TOOLS_PATH)/openocd/0.9.0-arduino
+#    UPLOADER_EXEC    = $(UPLOADER_PATH)/bin/openocd
+    UPLOADER_EXEC    = openocd
+    UPLOADER_OPTS    = -d2
+#    UPLOADER_PATH    = -s $(UPLOADER_PATH)/share/openocd/scripts/
+    UPLOADER_OPTS   += -f interface/cmsis-dap.cfg -f target/at91sam3ax_8x.cfg
+    UPLOADER_COMMAND = program {{$(TARGET_BIN)}} verify srst_only 0x00080000; shutdown
+    COMMAND_UPLOAD   = $(UPLOADER_EXEC) $(UPLOADER_OPTS) -c "$(UPLOADER_COMMAND)"
+else
+    UPLOADER          = bossac
+    UPLOADER_PATH     = $(OTHER_TOOLS_PATH)/bossac/$(BOSSAC_RELEASE)
+    UPLOADER_EXEC     = $(UPLOADER_PATH)/bossac
+    UPLOADER_PORT     = $(subst /dev/,,$(AVRDUDE_PORT))
+    UPLOADER_OPTS     = -i -d --port=$(UPLOADER_PORT) -U $(call PARSE_BOARD,$(BOARD_TAG),upload.native_usb) -e -w -v -b
+    COMMAND_UPLOAD    = $(UPLOADER_EXEC) $(UPLOADER_OPTS) $(TARGET_BIN) -R
+endif
 
 # Sketchbook/Libraries path
 # wildcard required for ~ management
@@ -97,6 +111,9 @@ OBJDUMP = $(APP_TOOLS_PATH)/arm-none-eabi-objdump
 OBJCOPY = $(APP_TOOLS_PATH)/arm-none-eabi-objcopy
 SIZE    = $(APP_TOOLS_PATH)/arm-none-eabi-size
 NM      = $(APP_TOOLS_PATH)/arm-none-eabi-nm
+# ~
+GDB     = $(APP_TOOLS_PATH)/arm-none-eabi-gdb
+# ~~
 
 # Specific AVRDUDE location and options
 #
@@ -170,11 +187,12 @@ F_CPU            = $(call PARSE_BOARD,$(BOARD_TAG),build.f_cpu)
 USB_VID     := $(call PARSE_BOARD,$(BOARD_TAG),build.vid)
 USB_PID     := $(call PARSE_BOARD,$(BOARD_TAG),build.pid)
 USB_PRODUCT := $(call PARSE_BOARD,$(BOARD_TAG),build.usb_product)
+USB_VENDOR  := $(call PARSE_BOARD,$(BOARD_TAG),build.usb_manufacturer)
 
 USB_FLAGS    = -DUSB_VID=$(USB_VID)
 USB_FLAGS   += -DUSB_PID=$(USB_PID)
 USB_FLAGS   += -DUSBCON
-USB_FLAGS   += -DUSB_MANUFACTURER=''
+USB_FLAGS   += -DUSB_MANUFACTURER='$(USB_VENDOR)'
 USB_FLAGS   += -DUSB_PRODUCT='$(USB_PRODUCT)'
 
 # Arduino Due serial 1200 reset
@@ -254,7 +272,7 @@ COMMAND_LINK    = $(CC) $(LDFLAGS) $(OUT_PREPOSITION)$@ -L$(OBJDIR) -Wl,--start-
 
 # Upload command
 #
-COMMAND_UPLOAD  = $(UPLOADER_EXEC) $(UPLOADER_OPTS) $(TARGET_BIN) -R
+#COMMAND_UPLOAD  = $(UPLOADER_EXEC) $(UPLOADER_OPTS) $(TARGET_BIN) -R
 
 
 # Target

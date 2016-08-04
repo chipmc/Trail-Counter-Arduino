@@ -19,9 +19,9 @@ APPLICATION_PATH := $(ENERGIA_PATH)
 ENERGIA_RELEASE  := $(shell tail -c2 $(APPLICATION_PATH)/lib/version.txt)
 ARDUINO_RELEASE  := $(shell head -c4 $(APPLICATION_PATH)/lib/version.txt | tail -c3)
 
-ifeq ($(shell if [[ '$(ENERGIA_RELEASE)' -ge '17' ]] ; then echo 1 ; else echo 0 ; fi ),0)
-    WARNING_MESSAGE = Energia 17 or later is required.
-endif
+#ifeq ($(shell if [[ '$(ENERGIA_RELEASE)' -ge '17' ]] ; then echo 1 ; else echo 0 ; fi ),0)
+#    WARNING_MESSAGE = Energia 17 or later is required.
+#endif
 
 PLATFORM         := Energia
 BUILD_CORE       := cc3200emt

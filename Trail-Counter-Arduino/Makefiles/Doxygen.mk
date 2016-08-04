@@ -57,10 +57,6 @@ ifeq ($(GENERATE_HTML),YES)
 endif
 
 
-#embed1
-#echo $VAR | tr '[:upper:]' '[:lower:]' | sed 's/ //g'
-
-
 # Doxygen rules
 # ----------------------------------
 #
@@ -119,6 +115,4 @@ distribute:
 		@Utilities/distribute.sh $(PROJECT_NAME)
 		@echo "==== Distribution done ===="
 # ~~
-
-
 

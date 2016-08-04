@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Jan 16, 2016 release 4.1.7
+# Last update: Jan 17, 2016 release 5.0.4
 
 
 include $(MAKEFILE_PATH)/About.mk
@@ -134,6 +134,10 @@ USB_PID             := $(call PARSE_BOARD,$(BOARD_TAG),build.pid)
 USB_MANUFACTURER    := $(call PARSE_BOARD,$(BOARD_TAG),build.usb_manufacturer)
 USB_PRODUCT         := $(call PARSE_BOARD,$(BOARD_TAG),build.usb_product)
 
+ifeq ($(USB_MANUFACTURER),)
+    USB_MANUFACTURER    := "RedBearLab"
+endif
+
 ifneq ($(USB_VID),)
     USB_FLAGS    = -DUSB_VID=$(USB_VID)
     USB_FLAGS   += -DUSB_PID=$(USB_PID)
@@ -142,6 +146,7 @@ ifneq ($(USB_VID),)
     USB_FLAGS   += -DUSB_PRODUCT='$(USB_PRODUCT)'
 endif
 
+USB_RESET  = python $(UTILITIES_PATH)/reset_1200.py
 
 MCU_FLAG_NAME    = mmcu
 MCU              = $(call PARSE_BOARD,$(BOARD_TAG),build.mcu)
@@ -173,7 +178,7 @@ CFLAGS           =
 # Specific CXXFLAGS for g++ only
 # g++ uses CPPFLAGS and CXXFLAGS
 #
-CXXFLAGS         = -fno-exceptions -fno-threadsafe-statics
+CXXFLAGS         = -fno-exceptions -fno-threadsafe-statics -std=gnu++11
 
 # Specific ASFLAGS for gcc assembler only
 # gcc assembler uses CPPFLAGS and ASFLAGS
@@ -199,7 +204,7 @@ OBJCOPYFLAGS  = -O ihex -R .eeprom
 #
 TARGET_HEXBIN    = $(TARGET_HEX)
 #-O ihex -j .eeprom --set-section-flags=.eeprom=alloc,load --no-change-warnings --change-section-lma .eeprom=0
-TARGET_EEP       = $(OBJDIR)/$(TARGET).eep
+#TARGET_EEP       = $(OBJDIR)/$(TARGET).eep
 
 # Commands
 # ----------------------------------
@@ -207,4 +212,4 @@ TARGET_EEP       = $(OBJDIR)/$(TARGET).eep
 #
 COMMAND_LINK    = $(CC) $(OUT_PREPOSITION)$@ $(LOCAL_OBJS) $(TARGET_A) -LBuilds $(LDFLAGS)
 
-COMMAND_UPLOAD  = $(AVRDUDE_EXEC) -p$(AVRDUDE_MCU) -D -c$(AVRDUDE_PROGRAMMER) -C$(AVRDUDE_CONF) -Uflash:w:$(TARGET_HEX):i
+COMMAND_UPLOAD  = $(AVRDUDE_EXEC) -p$(AVRDUDE_MCU) -D -c$(AVRDUDE_PROGRAMMER) -P$(USED_SERIAL_PORT) -b$(AVRDUDE_BAUDRATE) -C$(AVRDUDE_CONF) -Uflash:w:$(TARGET_HEX):i

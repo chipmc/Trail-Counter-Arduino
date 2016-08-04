@@ -163,7 +163,6 @@ void toArduinoTime(time_t unixT); //Converts to Arduino Time for use with the RT
 
 // FRAM and Unix time variables
 unsigned int  framAddr;
-tmElements_t tm;
 time_t t;
 int lastHour = 0;  // For recording the startup values
 int lastDate = 0;
@@ -527,20 +526,6 @@ void CheckForBump() // This is where we check to see if an interrupt is set when
                 TakeTheBus();
                     t = RTC.get();
                 GiveUpTheBus();
-                hourlyPersonCount++;                    // Increment the PersonCount
-                FRAMwrite16(CURRENTHOURLYCOUNTADDR, hourlyPersonCount);  // Load Hourly Count to memory
-                dailyPersonCount++;                    // Increment the PersonCount
-                FRAMwrite16(CURRENTDAILYCOUNTADDR, dailyPersonCount);   // Load Daily Count to memory
-                FRAMwrite32(CURRENTCOUNTSTIME, t);   // Write to FRAM - this is so we know when the last counts were saved
-                lastBump = millis();              // Reset last bump timer
-                Serial.print(F("Hourly: "));
-                Serial.print(hourlyPersonCount);
-                Serial.print(F(" Daily: "));
-                Serial.print(dailyPersonCount);
-                Serial.print(F("  Time: "));
-                PrintTimeDate();
-                ledState = !ledState;              // toggle the status of the LEDPIN:
-                digitalWrite(REDLED, ledState);    // update the LED pin itself
                 if (HOURLYPERIOD != currentHourlyPeriod) {
                     LogHourlyEvent(t);
                     Serial.print(F(" Hour: "));
@@ -565,6 +550,20 @@ void CheckForBump() // This is where we check to see if an interrupt is set when
                     dailyPersonCount = 0;    // Reset and increment the Person Count in the new period
                     currentDailyPeriod = DAILYPERIOD;  // Change the time period
                 }
+                hourlyPersonCount++;                    // Increment the PersonCount
+                FRAMwrite16(CURRENTHOURLYCOUNTADDR, hourlyPersonCount);  // Load Hourly Count to memory
+                dailyPersonCount++;                    // Increment the PersonCount
+                FRAMwrite16(CURRENTDAILYCOUNTADDR, dailyPersonCount);   // Load Daily Count to memory
+                FRAMwrite32(CURRENTCOUNTSTIME, t);   // Write to FRAM - this is so we know when the last counts were saved
+                lastBump = millis();              // Reset last bump timer
+                Serial.print(F("Hourly: "));
+                Serial.print(hourlyPersonCount);
+                Serial.print(F(" Daily: "));
+                Serial.print(dailyPersonCount);
+                Serial.print(F("  Time: "));
+                PrintTimeDate();
+                ledState = !ledState;              // toggle the status of the LEDPIN:
+                digitalWrite(REDLED, ledState);    // update the LED pin itself
             }
             readRegister(0x22);  // Reads the PULSE_SRC register to reset it
         }
@@ -573,6 +572,7 @@ void CheckForBump() // This is where we check to see if an interrupt is set when
 
 void StartStopTest(boolean startTest)  // Since the test can be started from the serial menu or the Simblee - created a function
 {
+    tmElements_t tm;
     if (startTest) {
         inTest = true;
         Serial.print(F("Starting Test - CONTROLREGISTER = "));
@@ -587,12 +587,15 @@ void StartStopTest(boolean startTest)  // Since the test can be started from the
         breakTime(unixTime, tm);
         lastHour = tm.Hour;
         lastDate = tm.Day;
-        if (currentDailyPeriod == lastDate) {
-            Serial.println("Restoring Counts");
-            dailyPersonCount = FRAMread16(CURRENTDAILYCOUNTADDR);  // Load Daily Count from memory
-            if (currentHourlyPeriod == lastHour) {
-                hourlyPersonCount = FRAMread16(CURRENTHOURLYCOUNTADDR);  // Load Hourly Count from memory
-            }
+        Serial.println("Restoring Counts");
+        dailyPersonCount = FRAMread16(CURRENTDAILYCOUNTADDR);  // Load Daily Count from memory
+        hourlyPersonCount = FRAMread16(CURRENTHOURLYCOUNTADDR);  // Load Hourly Count from memory
+        if (currentDailyPeriod != lastDate) {
+            LogHourlyEvent(t);
+            LogDailyEvent(t);
+        }
+        else if (currentHourlyPeriod != lastHour) {
+            LogHourlyEvent(t);
         }
         TakeTheBus();
             source = readRegister(0x22);     // Reads the PULSE_SRC register to reset it
@@ -622,6 +625,9 @@ void LogHourlyEvent(time_t LogTime) // Log Hourly Event()
 {
     Serial.print("Logging an Hourly Event - ");
     unsigned int pointer = (HOURLYOFFSET + FRAMread16(HOURLYPOINTERADDR))*WORDSIZE;  // get the pointer from memory and add the offset
+    tmElements_t timeElement;
+    breakTime(LogTime, timeElement);
+    LogTime = LogTime - 3600 -60*timeElement.Minute - timeElement.Second;       // So we need to back out the last hour to log the right one
     FRAMwrite32(pointer, LogTime);   // Write to FRAM - this is the end of the period
     FRAMwrite16(pointer+HOURLYCOUNTOFFSET,hourlyPersonCount);
     TakeTheBus();
@@ -637,6 +643,9 @@ void LogDailyEvent(time_t LogTime) // Log Daily Event()
 {
     Serial.print("Logging a Daily Event - ");
     int pointer = (DAILYOFFSET + FRAMread8(DAILYPOINTERADDR))*WORDSIZE;  // get the pointer from memory and add the offset
+    tmElements_t timeElement;
+    breakTime(LogTime, timeElement);
+    LogTime = LogTime - 86400L- 3600*timeElement.Hour -60*timeElement.Minute - timeElement.Second;  // Logging for the previous day
     FRAMwrite8(pointer,month(LogTime)); // should be time.month
     FRAMwrite8(pointer+DAILYDATEOFFSET,day(LogTime));  // Write to FRAM - this is the end of the period  - should be time.date
     FRAMwrite16(pointer+DAILYCOUNTOFFSET,dailyPersonCount);
@@ -651,6 +660,7 @@ void LogDailyEvent(time_t LogTime) // Log Daily Event()
 
 void SetTimeDate()  // Function to set the date and time from the terminal window
 {
+    tmElements_t tm;
     Serial.println(F("Enter Seconds (0-59): "));
     while (Serial.available() == 0) {  // Look for char in serial queue and process if found
         continue;

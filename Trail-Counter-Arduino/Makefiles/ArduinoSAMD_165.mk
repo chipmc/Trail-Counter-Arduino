@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Jan 22, 2015 release 4.1.9
+# Last update: Jul 04, 2016 release 4.5.8
 
 
 
@@ -67,8 +67,8 @@ else
     UPLOADER_EXEC    = $(UPLOADER_PATH)/bin/openocd
     UPLOADER_OPTS    = -d2 -s $(UPLOADER_PATH)/share/openocd/scripts/
 	UPLOADER_OPTS   += -f $(VARIANT_PATH)/$(call PARSE_BOARD,$(BOARD_TAG),build.openocdscript)
-    UPLOADER_COMMAND = -c telnet_port disabled; program {{$(TARGET_BIN)}} verify reset 0x00002000; shutdown
-    COMMAND_UPLOAD   = $(UPLOADER_EXEC) $(UPLOADER_OPTS) "$(UPLOADER_COMMAND)"
+    UPLOADER_COMMAND = telnet_port disabled; program {{$(TARGET_BIN)}} verify reset 0x00002000; shutdown
+    COMMAND_UPLOAD   = $(UPLOADER_EXEC) $(UPLOADER_OPTS) -c "$(UPLOADER_COMMAND)"
 endif
 
 # Sketchbook/Libraries path

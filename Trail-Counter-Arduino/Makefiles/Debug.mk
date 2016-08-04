@@ -8,8 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Nov 06, 2015 release 4.0.2
-
+# Last update: Jul 04, 2016 release 4.5.8
 
 
 
@@ -27,6 +26,7 @@ launch_debug:
 
 # 1. GDB
 ifneq ($(GDB),)
+	@echo GDB debugger
 	@if [ -f $(UTILITIES_PATH)/embedXcode_debug ]; then export STECK_EXTENSION=$(STECK_EXTENSION); $(UTILITIES_PATH)/embedXcode_debug; fi;
 
 # 1.1 mspdebug
@@ -188,12 +188,15 @@ ifneq ($(GDB),)
 
 # 2. MDB
 else ifneq ($(MDB),)
+		@echo MDB debugger
 		@if [ -f $(UTILITIES_PATH)/embedXcode_debug ]; then export STECK_EXTENSION=$(STECK_EXTENSION); $(UTILITIES_PATH)/embedXcode_debug; fi;
 
 		@echo "---- Launch programmer-debugger ----"
 		$(call SHOW,"8.19-DEBUG",$(UPLOADER))
 		@osascript -e 'tell application "Terminal" to do script "$(MDB) \"$(UTILITIES_PATH_SPACE)/mdb.txt\""'
 
+else
+    	@echo 'Unknown debugger'
 endif
 
 message_debug:

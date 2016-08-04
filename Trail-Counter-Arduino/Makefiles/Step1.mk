@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Apr 28, 2016 release 4.5.1
+# Last update: Jul 31, 2016 release 4.5.9
 
 
 
@@ -191,15 +191,15 @@ RELEASE_NOW = $(shell echo $(EMBEDXCODE_RELEASE) | sed 's/\.//g')
 
 ifneq ($(ARDUINO_CC_APP),)
 
-PACKAGES_PATH = $(HOME)/Library/Arduino15/packages
+ARDUINO_CC_PACKAGES_PATH = $(HOME)/Library/Arduino15/packages
 
-# find $(PACKAGES_PATH) -name arm-none-eabi-gcc -type d
-# find $(PACKAGES_PATH) -name avr-gcc -type d
+# find $(ARDUINO_CC_PACKAGES_PATH) -name arm-none-eabi-gcc -type d
+# find $(ARDUINO_CC_PACKAGES_PATH) -name avr-gcc -type d
 
 
 # Arduino.app path for ArduinoCC 1.6.5
 #
-ARDUINO_AVR_1 = $(PACKAGES_PATH)/arduino
+ARDUINO_AVR_1 = $(ARDUINO_CC_PACKAGES_PATH)/arduino
 
 ifneq ($(wildcard $(ARDUINO_AVR_1)/hardware/avr),)
     ARDUINO_AVR_APP     = $(ARDUINO_AVR_1)
@@ -207,7 +207,7 @@ ifneq ($(wildcard $(ARDUINO_AVR_1)/hardware/avr),)
     ARDUINO_CC_AVR_BOARDS  = $(ARDUINO_AVR_APP)/hardware/avr/$(ARDUINO_AVR_RELEASE)/boards.txt
 endif
 
-ARDUINO_SAM_1 = $(PACKAGES_PATH)/arduino
+ARDUINO_SAM_1 = $(ARDUINO_CC_PACKAGES_PATH)/arduino
 
 ifneq ($(wildcard $(ARDUINO_SAM_1)/hardware/sam),)
     ARDUINO_SAM_APP     = $(ARDUINO_SAM_1)
@@ -215,7 +215,7 @@ ifneq ($(wildcard $(ARDUINO_SAM_1)/hardware/sam),)
     ARDUINO_CC_SAM_BOARDS  = $(ARDUINO_SAM_APP)/hardware/sam/$(ARDUINO_SAM_RELEASE)/boards.txt
 endif
 
-ARDUINO_SAMD_1 = $(PACKAGES_PATH)/arduino
+ARDUINO_SAMD_1 = $(ARDUINO_CC_PACKAGES_PATH)/arduino
 
 ifneq ($(wildcard $(ARDUINO_SAMD_1)/hardware/samd),)
     ARDUINO_SAMD_APP     = $(ARDUINO_SAMD_1)
@@ -225,7 +225,7 @@ endif
 
 # Adafruit.app path for ArduinoCC 1.6.5
 #
-ADAFRUIT_AVR_1  = $(PACKAGES_PATH)/adafruit
+ADAFRUIT_AVR_1  = $(ARDUINO_CC_PACKAGES_PATH)/adafruit
 
 ifneq ($(wildcard $(ADAFRUIT_AVR_1)/hardware/avr),)
     ADAFRUIT_AVR_APP     = $(ADAFRUIT_AVR_1)
@@ -234,7 +234,7 @@ ifneq ($(wildcard $(ADAFRUIT_AVR_1)/hardware/avr),)
 endif
 
 # ~
-ADAFRUIT_SAMD_1  = $(PACKAGES_PATH)/adafruit
+ADAFRUIT_SAMD_1  = $(ARDUINO_CC_PACKAGES_PATH)/adafruit
 
 ifneq ($(wildcard $(ADAFRUIT_SAMD_1)/hardware/samd),)
     ADAFRUIT_SAMD_APP     = $(ADAFRUIT_SAMD_1)
@@ -245,7 +245,7 @@ endif
 
 # chipKIT.app path for ArduinoCC 1.6.5
 #
-CHIPKIT_1     = $(PACKAGES_PATH)/chipKIT
+CHIPKIT_1     = $(ARDUINO_CC_PACKAGES_PATH)/chipKIT
 ifneq ($(wildcard $(CHIPKIT_1)),)
     CHIPKIT_APP     = $(CHIPKIT_1)
     CHIPKIT_PATH    = $(CHIPKIT_APP)
@@ -255,7 +255,7 @@ endif
 # ~
 # RFduino.app path for ArduinoCC 1.6.5
 #
-RFDUINO_1    = $(PACKAGES_PATH)/RFduino
+RFDUINO_1    = $(ARDUINO_CC_PACKAGES_PATH)/RFduino
 
 ifneq ($(wildcard $(RFDUINO_1)),)
     RFDUINO_APP     = $(RFDUINO_1)
@@ -267,7 +267,7 @@ endif
 # ~
 # Simblee.app path for ArduinoCC 1.6.5
 #
-SIMBLEE_1    = $(PACKAGES_PATH)/Simblee
+SIMBLEE_1    = $(ARDUINO_CC_PACKAGES_PATH)/Simblee
 
 ifneq ($(wildcard $(SIMBLEE_1)),)
     SIMBLEE_APP     = $(SIMBLEE_1)
@@ -279,7 +279,7 @@ endif
 # ~
 # ARDUCAM_ESP.app path for ArduinoCC 1.6.5
 #
-ARDUCAM_ESP_1    = $(PACKAGES_PATH)/ArduCAM_ESP8266_UNO
+ARDUCAM_ESP_1    = $(ARDUINO_CC_PACKAGES_PATH)/ArduCAM_ESP8266_UNO
 
 ifneq ($(wildcard $(ARDUCAM_ESP_1)),)
     ARDUCAM_ESP_APP     = $(ARDUCAM_ESP_1)
@@ -291,7 +291,7 @@ endif
 # ~
 # Moteino.app path for ArduinoCC 1.6.5
 #
-MOTEINO_1    = $(PACKAGES_PATH)/Moteino
+MOTEINO_1    = $(ARDUINO_CC_PACKAGES_PATH)/Moteino
 
 ifneq ($(wildcard $(MOTEINO_1)),)
     MOTEINO_APP     = $(MOTEINO_1)
@@ -302,7 +302,7 @@ endif
 
 # UDOO_NEO path for ArduinoCC 1.6.5
 #
-UDOO_NEO_1    = $(PACKAGES_PATH)/UDOO
+UDOO_NEO_1    = $(ARDUINO_CC_PACKAGES_PATH)/UDOO
 
 ifneq ($(wildcard $(UDOO_NEO_1)),)
     UDOO_NEO_APP     = $(UDOO_NEO_1)
@@ -312,7 +312,7 @@ endif
 
 # IntelArduino.app path for ArduinoCC 1.6.5
 #
-INTEL_1    = $(PACKAGES_PATH)/Intel
+INTEL_1    = $(ARDUINO_CC_PACKAGES_PATH)/Intel
 
 ifneq ($(wildcard $(INTEL_1)),)
     INTEL_APP     = $(INTEL_1)
@@ -324,8 +324,8 @@ endif
 
 # RedBearLab.app path for ArduinoCC 1.6.5
 #
-REDBEARLAB_AVR_1    = $(PACKAGES_PATH)/RedBearLab
-REDBEARLAB_NRF_1    = $(PACKAGES_PATH)/RedBearLab
+REDBEARLAB_AVR_1    = $(ARDUINO_CC_PACKAGES_PATH)/RedBearLab
+REDBEARLAB_NRF_1    = $(ARDUINO_CC_PACKAGES_PATH)/RedBearLab
 
 ifneq ($(wildcard $(REDBEARLAB_AVR_1)/hardware/avr),)
     REDBEARLAB_AVR_APP     = $(REDBEARLAB_AVR_1)
@@ -340,7 +340,7 @@ ifneq ($(wildcard $(REDBEARLAB_NRF_1)/hardware/nRF51822),)
 endif
 
 # ~
-REDBEARLAB_DUO_1    = $(PACKAGES_PATH)/RedBear
+REDBEARLAB_DUO_1    = $(ARDUINO_CC_PACKAGES_PATH)/RedBear
 
 ifneq ($(wildcard $(REDBEARLAB_DUO_1)/hardware/STM32F2),)
     REDBEARLAB_DUO_APP     = $(REDBEARLAB_DUO_1)
@@ -351,9 +351,9 @@ endif
 
 # DigisparkArduino.app path for ArduinoCC 1.6.5
 #
-DIGISTUMP_AVR_1 = $(PACKAGES_PATH)/digistump
-DIGISTUMP_SAM_1 = $(PACKAGES_PATH)/digistump
-DIGISTUMP_OAK_1 = $(PACKAGES_PATH)/digistump
+DIGISTUMP_AVR_1 = $(ARDUINO_CC_PACKAGES_PATH)/digistump
+DIGISTUMP_SAM_1 = $(ARDUINO_CC_PACKAGES_PATH)/digistump
+DIGISTUMP_OAK_1 = $(ARDUINO_CC_PACKAGES_PATH)/digistump
 
 ifneq ($(wildcard $(DIGISTUMP_AVR_1)),)
     DIGISTUMP_AVR_APP    = $(DIGISTUMP_AVR_1)
@@ -375,7 +375,7 @@ endif
 
 # ESP8266 NodeMCU.app path for ArduinoCC 1.6.5
 #
-ESP8266_1 = $(PACKAGES_PATH)/esp8266
+ESP8266_1 = $(ARDUINO_CC_PACKAGES_PATH)/esp8266
 
 ifneq ($(wildcard $(ESP8266_1)),)
     ESP8266_APP     = $(ESP8266_1)
@@ -385,7 +385,7 @@ endif
 
 # LittleRobotFriends.app path for ArduinoCC 1.6.5
 #
-LITTLEROBOTFRIENDS_1 = $(PACKAGES_PATH)/littlerobotfriends
+LITTLEROBOTFRIENDS_1 = $(ARDUINO_CC_PACKAGES_PATH)/littlerobotfriends
 
 ifneq ($(wildcard $(LITTLEROBOTFRIENDS_1)),)
     LITTLEROBOTFRIENDS_APP  = $(ARDUINO_APP)
@@ -396,7 +396,7 @@ endif
 # ~
 # Cosa.app path for ArduinoCC 1.6.5
 #
-COSA_AVR_1    = $(PACKAGES_PATH)/Cosa
+COSA_AVR_1    = $(ARDUINO_CC_PACKAGES_PATH)/Cosa
 
 ifneq ($(wildcard $(COSA_AVR_1)),)
     COSA_AVR_APP     = $(COSA_AVR_1)
@@ -408,7 +408,7 @@ endif
 # ~
 # LinkIt.app path for ArduinoCC 1.6.5
 #
-LINKIT_ARM_1    = $(PACKAGES_PATH)/LinkIt
+LINKIT_ARM_1    = $(ARDUINO_CC_PACKAGES_PATH)/LinkIt
 
 ifneq ($(wildcard $(LINKIT_ARM_1)/hardware/arm/$(LINKIT_ONE_RELEASE)),)
     LINKIT_ARM_APP      = $(LINKIT_ARM_1)
@@ -416,7 +416,7 @@ ifneq ($(wildcard $(LINKIT_ARM_1)/hardware/arm/$(LINKIT_ONE_RELEASE)),)
     LINKIT_ARM_BOARDS   = $(LINKIT_ARM_PATH)/hardware/arm/$(LINKIT_ONE_RELEASE)/boards.txt
 endif
 
-LINKIT_AVR_1    = $(PACKAGES_PATH)/LinkIt
+LINKIT_AVR_1    = $(ARDUINO_CC_PACKAGES_PATH)/LinkIt
 
 ifneq ($(wildcard $(LINKIT_AVR_1)/hardware/avr/$(LINKIT_DUO_RELEASE)),)
     LINKIT_AVR_APP      = $(LINKIT_AVR_1)
@@ -427,7 +427,7 @@ endif
 
 # panStamp.app path for ArduinoCC 1.6.5
 #
-PANSTAMP_AVR_1    = $(PACKAGES_PATH)/panstamp_avr
+PANSTAMP_AVR_1    = $(ARDUINO_CC_PACKAGES_PATH)/panstamp_avr
 
 ifneq ($(wildcard $(PANSTAMP_AVR_1)),)
     PANSTAMP_AVR_APP    = $(PANSTAMP_AVR_1)
@@ -435,7 +435,7 @@ ifneq ($(wildcard $(PANSTAMP_AVR_1)),)
     PANSTAMP_AVR_BOARDS = $(PANSTAMP_AVR_APP)/hardware/avr/$(PANSTAMP_AVR_RELEASE)/boards.txt
 endif
 
-PANSTAMP_NRG_1    = $(PACKAGES_PATH)/panstamp_nrg
+PANSTAMP_NRG_1    = $(ARDUINO_CC_PACKAGES_PATH)/panstamp_nrg
 
 ifneq ($(wildcard $(PANSTAMP_NRG_1)),)
     PANSTAMP_NRG_APP    = $(PANSTAMP_NRG_1)
@@ -568,7 +568,7 @@ MICRODUINO_AVR_BOARDS       = $(MICRODUINO_PATH)/hardware/Microduino/avr/boards.
 TEENSY_PATH     = $(TEENSY_APP)/Contents/Java
 TEENSY_BOARDS   = $(TEENSY_PATH)/hardware/teensy/avr/boards.txt
 
-ENERGIA_PATH    = $(ENERGIA_APP)/Contents/Resources/Java
+ENERGIA_PATH                = $(ENERGIA_APP)/Contents/Resources/Java
 ENERGIA_MSP430_BOARDS       = $(ENERGIA_PATH)/hardware/msp430/boards.txt
 ENERGIA_C2000_BOARDS        = $(ENERGIA_PATH)/hardware/c2000/boards.txt
 ENERGIA_LM4F_BOARDS         = $(ENERGIA_PATH)/hardware/lm4f/boards.txt
@@ -856,7 +856,8 @@ ifneq ($(MAKECMDGOALS),boards)
 # ~~
 
         else
-            $(error $(BOARD_TAG) board is unknown)
+            UNKNOWN_BOARD = 1
+#            $(error $(BOARD_TAG) board is unknown)
         endif
 # ~
       endif

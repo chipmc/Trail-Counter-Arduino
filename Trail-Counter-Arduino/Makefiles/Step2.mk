@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Apr 22, 2016 release 4.5.0
+# Last update: Jul 31, 2016 release 4.5.9
 
 
 
@@ -132,6 +132,7 @@ SHOW  = @printf '%-24s\t%s\r\n' $(1) $(2)
 
 # Find version of the platform
 #
+ifneq ($(UNKNOWN_BOARD),1)
 ifeq ($(PLATFORM_VERSION),)
 ifneq ($(MAKECMDGOALS),boards)
 ifneq ($(MAKECMDGOALS),clean)
@@ -152,6 +153,7 @@ ifneq ($(MAKECMDGOALS),clean)
     else
         PLATFORM_VERSION := $(shell cat $(APPLICATION_PATH)/lib/version.txt)
     endif
+endif
 endif
 endif
 endif
@@ -761,43 +763,43 @@ $(OBJDIR)/%: $(OBJDIR)/%.elf
 ifeq ($(TARGET_HEXBIN),$(TARGET_HEX))
 #    FLASH_SIZE = $(SIZE) --target=ihex --totals $(CURRENT_DIR)/$(TARGET_HEX) | grep TOTALS | tr '\t' . | cut -d. -f2 | tr -d ' '
     FLASH_SIZE = $(SIZE) --target=ihex --totals $(CURRENT_DIR)/$(TARGET_HEX) | grep TOTALS | awk '{t=$$3 + $$2} END {print t}'
-    RAM_SIZE = $(SIZE) $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$3 + $$2} END {print t}'
+    RAM_SIZE = $(SIZE) --totals $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$3 + $$2} END {print t}'
 
 # ~
 else ifeq ($(TARGET_HEXBIN),$(TARGET_VXP))
     FLASH_SIZE = $(SIZE) $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$1 + $$2} END {print t}'
-    RAM_SIZE = $(SIZE) $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$3} END {print t}'
+    RAM_SIZE = $(SIZE) --totals $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$3} END {print t}'
 # ~~
 
 else ifeq ($(TARGET_HEXBIN),$(TARGET_BIN))
     FLASH_SIZE = $(SIZE) --target=binary --totals $(CURRENT_DIR)/$(TARGET_BIN) | grep TOTALS | tr '\t' . | cut -d. -f2 | tr -d ' '
-    RAM_SIZE = $(SIZE) $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$3 + $$2} END {print t}'
+    RAM_SIZE = $(SIZE) --totals $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$3 + $$2} END {print t}'
 
 else ifeq ($(TARGET_HEXBIN),$(TARGET_BIN2))
 
-    FLASH_SIZE = $(SIZE) $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$1 + $$2} END {print t}'
-    RAM_SIZE = $(SIZE) $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$3 + $$2} END {print t}'
+    FLASH_SIZE = $(SIZE) --totals $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$1 + $$2} END {print t}'
+    RAM_SIZE = $(SIZE) --totals $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$3 + $$2} END {print t}'
 
 else ifeq ($(TARGET_HEXBIN),$(TARGET_OUT))
     FLASH_SIZE = cat Builds/embeddedcomputing.map | grep '^.text' | awk 'BEGIN { OFS = "" } {print "0x",$$4}' | xargs printf '%d'
     RAM_SIZE = cat Builds/embeddedcomputing.map | grep '^.ebss' | awk 'BEGIN { OFS = "" } {print "0x",$$4}' | xargs printf '%d'
 
 else ifeq ($(TARGET_HEXBIN),$(TARGET_DOT))
-    FLASH_SIZE = $(SIZE) $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$1} END {print t}'
+    FLASH_SIZE = $(SIZE) --totals $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$1} END {print t}'
 #    FLASH_SIZE = ls -all $(CURRENT_DIR)/$(TARGET_DOT) | awk '{print $$5}'
-    RAM_SIZE = $(SIZE) $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$3 + $$2} END {print t}'
+    RAM_SIZE = $(SIZE) --totals $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$3 + $$2} END {print t}'
 
 else ifeq ($(TARGET_HEXBIN),$(TARGET_ELF))
-    FLASH_SIZE = $(SIZE) $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$1} END {print t}'
-    RAM_SIZE = $(SIZE) $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$3 + $$2} END {print t}'
+    FLASH_SIZE = $(SIZE) --totals $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$1} END {print t}'
+    RAM_SIZE = $(SIZE) --totals $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$3 + $$2} END {print t}'
 
 else ifeq ($(TARGET_HEXBIN),$(TARGET_MCU))
-    FLASH_SIZE = $(SIZE) $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$4} END {print t}'
-    RAM_SIZE = $(SIZE) $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$4} END {print t}'
+    FLASH_SIZE = $(SIZE) --totals $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$4} END {print t}'
+    RAM_SIZE = $(SIZE) --totals $(CURRENT_DIR)/$(TARGET_ELF) | sed '1d' | awk '{t=$$4} END {print t}'
 endif
 
 ifeq ($(MAX_FLASH_SIZE),)
-    MAX_FLASH_SIZE = $(call PARSE_BOARD,$(BOARD_TAG),upload.maximum_size)
+    MAX_FLASH_SIZE = $(firstword $(call PARSE_BOARD,$(BOARD_TAG),upload.maximum_size))
 endif
 ifeq ($(MAX_RAM_SIZE),)
     MAX_RAM_SIZE = $(call PARSE_BOARD,$(BOARD_TAG),upload.maximum_data_size)
@@ -883,7 +885,12 @@ info:
 #		@if [ -f $(CURRENT_DIR)/About/About.txt ]; then $(CAT) $(CURRENT_DIR)/About/About.txt | head -6; fi;
 		@if [ -f $(UTILITIES_PATH)/embedXcode_check ]; then $(UTILITIES_PATH)/embedXcode_check; fi
 		@echo $(STARTCHRONO)
-
+ifeq ($(UNKNOWN_BOARD),1)
+		@echo ==== Info ====
+		@echo 'ERROR	$(BOARD_TAG) board is unknown'
+		@echo ==== Info done ====
+		exit 2
+endif
 
 ifneq ($(MAKECMDGOALS),boards)
   ifneq ($(MAKECMDGOALS),clean)
@@ -978,10 +985,10 @@ endif
     endif
 
 		@echo ---- Libraries ----
-		@echo . Core libraries from $(CORE_LIB_PATH) | cut -d. -f1,2
+		@echo . Core libraries from $(CORE_LIB_PATH) # | cut -d. -f1,2
 		@echo $(CORE_LIBS_LIST)
 
-		@echo . Application libraries from $(basename $(APP_LIB_PATH)) | cut -d. -f1,2
+		@echo . Application libraries from $(basename $(APP_LIB_PATH)) # | cut -d. -f1,2
     ifneq ($(strip $(APP_LIBS_LIST)),)
 		@echo $(APP_LIBS_LIST)
     endif
@@ -1153,7 +1160,7 @@ raw_upload:
 ifeq ($(RESET_MESSAGE),1)
 		$(call SHOW,"10.0-UPLOAD",$(UPLOADER))
 
-		@osascript -e 'tell application "System Events" to display dialog "Press the RESET button on the board $(BOARD_NAME) and then click OK." buttons {"OK"} default button {"OK"} with icon POSIX file ("$(UTILITIES_PATH)/TemplateIcon.icns") with title "embedXcode"'
+		@osascript -e 'tell application "System Events" to display dialog "Press the RESET button on the board $(BOARD_NAME) and then click OK." buttons {"OK"} default button {"OK"} with icon POSIX file ("$(UTILITIES_PATH_SPACE)/TemplateIcon.icns") with title "embedXcode"'
 # Give Mac OS X enough time for enumerating the USB ports
 		@sleep 3
 endif
@@ -1323,7 +1330,6 @@ else ifeq ($(UPLOADER),openocd)
 else ifeq ($(UPLOADER),mspdebug)
 		$(call SHOW,"10.10-UPLOAD",$(UPLOADER))
 
-        
   ifeq ($(UPLOADER_PROTOCOL),tilib)
 		cd $(UPLOADER_PATH); ./mspdebug $(UPLOADER_OPTS) "$(UPLOADER_COMMAND) $(CURRENT_DIR_SPACE)/$(TARGET_HEX)";
 
@@ -1380,7 +1386,7 @@ else ifeq ($(UPLOADER),dfu-util)
 else ifeq ($(UPLOADER),teensy_flash)
 		$(call SHOW,"10.15-UPLOAD",$(UPLOADER))
 
-		$(TEENSY_POST_COMPILE) -file=$(basename $(notdir $(TARGET_HEX))) -path=$(dir $(abspath $(TARGET_HEX))) -tools=$(abspath $(TEENSY_FLASH_PATH))
+		$(TEENSY_POST_COMPILE) -file=$(basename $(notdir $(TARGET_HEX))) -path="$(CURRENT_DIR_SPACE)/Builds" -tools=$(abspath $(TEENSY_FLASH_PATH))
 		sleep 2
 		$(TEENSY_REBOOT)
 		sleep 2
@@ -1518,6 +1524,10 @@ endif
 
 # ~
 serial_option:		reset
+ifneq ($(DELAY_PRE_SERIAL),)
+	@sleep $(DELAY_PRE_SERIAL)
+endif
+
 ifneq ($(NO_SERIAL_CONSOLE),1)
     ifeq ($(BOARD_PORT),ssh)
       ifeq ($(BOARD_TAG),yun)
