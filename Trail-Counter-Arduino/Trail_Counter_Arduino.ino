@@ -82,17 +82,17 @@
 #endif
 
 //Time Period Deinifinitions - used for debugging
-#define HOURLYPERIOD second(t)   // Normally hour(t) but can use minute(t) for debugging
-#define DAILYPERIOD minute(t) // Normally day(t) but can use minute(t) or hour(t) for debugging
+#define HOURLYPERIOD hour(t)   // Normally hour(t) but can use minute(t) for debugging
+#define DAILYPERIOD day(t) // Normally day(t) but can use minute(t) or hour(t) for debugging
 
 //These defines let me change the memory map without hunting through the whole program
-#define VERSIONNUMBER 6      // Increment this number each time the memory map is changed
+#define VERSIONNUMBER 7      // Increment this number each time the memory map is changed
 #define WORDSIZE 8            // For the Word size
 #define PAGESIZE 4096         // Memory size in bytes / word size - 256kb FRAM
 // First Word - 8 bytes for setting global values
 #define DAILYOFFSET 2        // First word of daily counts
-#define HOURLYOFFSET 32        // First word of hourly counts (remember we start counts at 1)
-#define DAILYCOUNTNUMBER 30    // used in modulo calculations - sets the # of days stored
+#define HOURLYOFFSET 30        // First word of hourly counts (remember we start counts at 1)
+#define DAILYCOUNTNUMBER 28    // used in modulo calculations - sets the # of days stored
 #define HOURLYCOUNTNUMBER 4064 // used in modulo calculations - sets the # of hours stored - 256k (4096-14-2)
 #define VERSIONADDR 0x0       // Memory Locations By Name not Number
 #define SENSITIVITYADDR 0x1   // For the 1st Word locations
@@ -117,6 +117,7 @@
 #define REDLED 4          // led connected to digital pin 4
 #define YELLOWLED 6       // The yellow LED
 #define LEDPWR 7          // This pin turns on and off the LEDs
+#define ALARMPIN 5
 
 // Include application, user and local libraries
 #include "i2c.h"                // not the wire library, can't use pull-ups
@@ -240,6 +241,17 @@ void setup()
             Serial.println(F("No I2C FRAM found ... check your connections"));
             BlinkForever();
         }
+    
+    
+        // We need to set an Alarm or Two in order to ensure that the Simblee is put to sleep at night
+        RTC.squareWave(SQWAVE_NONE);            //Disable the default square wave of the SQW pin.
+        RTC.alarm(ALARM_1);                     // This will clear the Alarm flags
+        RTC.alarm(ALARM_2);                     // This will clear the Alarm flags
+        RTC.setAlarm(ALM1_MATCH_HOURS,00,00,22,0); // Set the evening Alarm
+        // RTC.setAlarm(ALM2_EVERY_MINUTE,0x00,0x00,0x00); // Set the alarm to go off every minute for testing
+        RTC.setAlarm(ALM2_MATCH_HOURS,00,00,6,0); // Set the moringin Alarm
+        RTC.alarmInterrupt(ALARM_2, true);      // Connect the Interrupt to the Alarms (or not)
+        RTC.alarmInterrupt(ALARM_1, true);
     GiveUpTheBus(); // Done with i2c initializations Arduino gives up the bus here.
     
     
@@ -441,6 +453,14 @@ void loop()
         }
     }
     if (millis() >= lastCheckedControlRegister + controlRegisterDelay) {
+        TakeTheBus();
+            boolean alarmInt1 = RTC.alarm(ALARM_1);
+            boolean alarmInt2 = RTC.alarm(ALARM_2);
+        GiveUpTheBus();
+        if (alarmInt1 || alarmInt2) {
+            Serial.print("Alarm Flag Set - ");
+            PrintTimeDate();  // Give and take the bus are in this function as it gets the current time
+        }
         controlRegisterValue = FRAMread8(CONTROLREGISTER);
         if (controlRegisterValue != oldControlRegisterValue) {       // debugging code 
             Serial.print(F("ControlRegisterValue = "));
@@ -685,8 +705,10 @@ void PrintTimeDate()  // Prints time and date to the console
     Serial.print(F(" "));
     Serial.print(hour(t), DEC);
     Serial.print(':');
+    if (minute(t) < 10) Serial.print("0");
     Serial.print(minute(t), DEC);
     Serial.print(':');
+    if (second(t) < 10) Serial.print("0");
     Serial.print(second(t), DEC);
     Serial.println();
 }

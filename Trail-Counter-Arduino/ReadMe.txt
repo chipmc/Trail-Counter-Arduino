@@ -39,7 +39,7 @@ Hardware setup:
 - Inverter used to invert the interrupt from the accelerometer and send to INT2PIN
 - Adafruit Bluetooth UART friend used to provide remote serial support
 
-Memory Map v6
+Memory Map v7
 
 Memory Map - 256kb or 32kB divided into 4096 words - the  first one is reserved
 Byte     Value
@@ -54,7 +54,7 @@ The second word is for storing the current count data
 8-9      Current Hourly Count (16-bit)
 10-11    Current Daily Count (16-bit)
 12-15    EPOCH Time when last counts recorded (32-bits)
-Words 3-32 are 30 days worth of daily counts - if this changes - need to change #offsets and DAILYCOUNTNUMBER
+Words 3-30 are 28 days worth of daily counts - if this changes - need to change #offsets and DAILYCOUNTNUMBER
 0        Month
 1        Day
 2 - 3    Daily Count (16-bit)
@@ -62,7 +62,7 @@ Words 3-32 are 30 days worth of daily counts - if this changes - need to change 
 5        Reserved
 6        Reserved
 7        Reserved
-Words from 33 to the end of the memory store hourly data
+Words from 31 to the end of the memory store hourly data
 0 - 3    EPOCH Time
 4 - 5    Hourly count (16-bit)
 6        Houlry Battery Level
