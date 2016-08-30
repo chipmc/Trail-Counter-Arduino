@@ -11,7 +11,7 @@
 //  Copyright   (c) 2010-2016 http://embedxcode.weebly.com
 //  Licence		All rights reserved
 //
-// Last update: Feb 19, 2015 release 4.3.3
+// Last update: Jul 15, 2016 release 5.0.8
 
 // Board identifier
 // See Boards.txt for <tag>.name=Arduino Uno (16 MHz)
@@ -64,3 +64,5 @@ RESET_MESSAGE = 1
 //// Define fuses, only if different from default values
 ////ISP_LOCK_FUSE_PRE ISP_LOCK_FUSE_POST ISP_HIGH_FUSE ISP_LOW_FUSE ISP_EXT_FUSE
 //
+
+DELAY_PRE_SERIAL = 5

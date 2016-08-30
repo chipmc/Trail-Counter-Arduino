@@ -11,12 +11,13 @@
 //  Copyright   (c) 2010-2016 http://embedxcode.weebly.com
 //  Licence     All rights reserved
 //
-// Last update: Apr 01, 2015 release 273
+// Last update: Jul 22, 2016 release 5.1.0
 
 // Board identifier
 // See Boards.txt for <tag>.name=Arduino Uno (16 MHz)
 //
 BOARD_TAG  = MSP-EXP432P401R
+BOARD_TAG_18 = MSP-EXP432P401R
 
 // Port (optionnal)
 // most common are /dev/tty.usbserial*, /dev/tty.usbmodem* or /dev/tty.uart*

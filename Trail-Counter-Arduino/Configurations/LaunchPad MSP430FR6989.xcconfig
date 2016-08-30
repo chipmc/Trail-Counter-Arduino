@@ -11,12 +11,13 @@
 //  Copyright   (c) 2010-2016 http://embedxcode.weebly.com
 //  Licence     All rights reserved
 //
-// Last update: Jul 02, 2015 release 297
+// Last update: Jul 22, 2016 release 5.1.0
 
 // Board identifier
 // See Boards.txt for <tag>.name=Arduino Uno (16 MHz)
 //
-BOARD_TAG  = lpmsp430fr6989
+BOARD_TAG_18  = MSP-EXP430FR6989LP
+BOARD_TAG = lpmsp430fr6989
 
 // Port (optionnal)
 // most common are /dev/tty.usbserial*, /dev/tty.usbmodem* or /dev/tty.uart*

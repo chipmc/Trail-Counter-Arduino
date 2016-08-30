@@ -57,6 +57,13 @@ ifeq ($(GENERATE_HTML),YES)
 endif
 
 
+# Style options
+# ----------------------------------
+#
+STYLE_OPTIONS   = --options='$(CURRENT_DIR)/Utilities/style.conf'
+STYLE_FLAG      = $(shell which astyle)
+
+
 # Doxygen rules
 # ----------------------------------
 #
@@ -115,4 +122,22 @@ distribute:
 		@Utilities/distribute.sh $(PROJECT_NAME)
 		@echo "==== Distribution done ===="
 # ~~
+
+# ~
+# Style rules
+# ----------------------------------
+#
+style:
+	@echo "==== Style ===="
+ifeq ($(STYLE_FLAG),)
+	@echo 'ERROR        astyle utility not available'
+else
+	@if [ $$(find . -name \*.ino -type f | wc -l) -gt 0 ] ; then astyle $(STYLE_OPTIONS) '$(CURRENT_DIR)/*.ino' ; fi
+	@if [ $$(find . -name \*.c -type f | wc -l) -gt 0 ] ; then astyle $(STYLE_OPTIONS) '$(CURRENT_DIR)/*.c' ; fi
+	@if [ $$(find . -name \*.cpp -type f | wc -l) -gt 0 ] ; then astyle $(STYLE_OPTIONS) '$(CURRENT_DIR)/*.cpp' ; fi
+	@if [ $$(find . -name \*.h -type f | wc -l) -gt 0 ] ; then astyle $(STYLE_OPTIONS) '$(CURRENT_DIR)/*.h' ; fi
+endif
+	@echo "==== Style done ===="
+# ~~
+
 

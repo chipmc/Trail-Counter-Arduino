@@ -80,6 +80,17 @@
 #else
 #define MMA8452_ADDRESS 0x1C
 #endif
+// There are some new pin assignments when using the new v9 board
+#define V9BOARD 1
+#if V9BOARD                    // These are the pin assignments for the v9 board
+#define ALARMPIN 3         // This one will be used for the RTC Alarm in v9
+#define INT2PIN 2         // This is the interrupt pin that registers taps
+#define I2CPIN 5            // This is a pin which connects to the i2c header - future use
+#else                      // These are the pin assignments for the v8b board
+#define INT1PIN 2         // Not used now but wired for future use
+#define INT2PIN 3         // This is the interrupt pin that registers taps
+#define ALARMPIN 5         // This is the pin with the RTC Alarm clock - not used on Arduino side
+#endif
 
 //Time Period Deinifinitions - used for debugging
 #define HOURLYPERIOD hour(t)   // Normally hour(t) but can use minute(t) for debugging
@@ -111,13 +122,11 @@
 #define HOURLYCOUNTOFFSET 4         // Offsets for the values in the hourly words
 #define HOURLYBATTOFFSET 6
 
-// Pin Value Variables
-#define INT1PIN 2         // Not used now but wired for future use
-#define INT2PIN 3         // This is the interrupt pin that registers taps
+// LED Pin Value Variables
 #define REDLED 4          // led connected to digital pin 4
 #define YELLOWLED 6       // The yellow LED
 #define LEDPWR 7          // This pin turns on and off the LEDs
-#define ALARMPIN 5
+
 
 // Include application, user and local libraries
 #include "i2c.h"                // not the wire library, can't use pull-ups
@@ -173,13 +182,15 @@ byte currentDailyPeriod;     // We will keep daily counts as well as period coun
 int countTemp = 0;          // Will use this to see if we should display a day or hours counts
 
 // Variables for the control byte
-// Control Register  (8 - 5 Reserved, 4-Toggle LEDs, 3-Start / Stop Test, 2-Set Sensitivity, 1-Set Delay)
+// Control Register  (8 - 6 Reserved, 5-Clear Counts, 4-Toggle LEDs, 3-Start / Stop Test, 2-Set Sensitivity, 1-Set Delay)
 byte signalDebounceChange = B00000001;
 byte clearDebounceChange = B11111110;
 byte signalSentitivityChange = B00000010;
 byte clearSensitivityChange = B11111101;
 byte toggleStartStop = B00000100;
 byte toggleLEDs = B00001000;
+byte signalClearCounts = B00010000;
+byte clearClearCounts = B11101111;
 byte controlRegisterValue;
 byte oldControlRegisterValue;
 unsigned long lastCheckedControlRegister;
@@ -227,7 +238,7 @@ void setup()
         batteryMonitor.reset();               // Initialize the battery monitor
         batteryMonitor.quickStart();
         setSyncProvider(RTC.get);
-        Serial.print(F("RTC Sync"));
+        Serial.println(F("RTC Sync"));
         if (timeStatus() != timeSet) {
             Serial.println(F(" time sync fail!"));
             BlinkForever();
@@ -264,11 +275,11 @@ void setup()
             case 'Y':
                 ResetFRAM();
                 break;
-            case 'N':
-                Serial.println(F("Cannot proceed"));
-                BlinkForever();
+            case 'y':
+                ResetFRAM();
                 break;
             default:
+                Serial.println(F("Cannot proceed"));
                 BlinkForever();
         }
     }
@@ -281,8 +292,7 @@ void setup()
     debounce = FRAMread16(DEBOUNCEADDR);
     Serial.println(debounce);
     
-    FRAMwrite8(CONTROLREGISTER, B00001000);       // Reset the control register and turn on the lights
-    LEDSon = 1;
+    FRAMwrite8(CONTROLREGISTER, B00000000);       // Reset the control register
     
     TakeTheBus();  // Need to initialize the accelerometer
         // Read the WHO_AM_I register of the Accelerometer, this is a good test of communication
@@ -501,6 +511,13 @@ void loop()
             Serial.print(F("Sensitivty Updated Control Register Value ="));
             Serial.println(controlRegisterValue);
         }
+        else if (controlRegisterValue & signalClearCounts)
+        {
+            controlRegisterValue &= clearClearCounts;
+            hourlyPersonCount = 0;
+            dailyPersonCount = 0;
+            Serial.println(F("Current Counts Cleared as Ordered"));
+        }
         else if (((controlRegisterValue & toggleLEDs) >> 3) && !LEDSon)
         {
             digitalWrite(LEDPWR,LOW);
@@ -527,13 +544,11 @@ void CheckForBump() // This is where we check to see if an interrupt is set when
                     t = RTC.get();
                 GiveUpTheBus();
                 if (HOURLYPERIOD != currentHourlyPeriod) {
-                    LogHourlyEvent(t);
                     Serial.print(F(" Hour: "));
                     Serial.print(currentHourlyPeriod);
                     Serial.print(F(" - count: "));
                     Serial.println(hourlyPersonCount);
-                    hourlyPersonCount = 0;                    // Reset and increment the Person Count in the new period
-                    currentHourlyPeriod = HOURLYPERIOD;  // Change the time period
+                    LogHourlyEvent(t);
                     if (currentHourlyPeriod >= 19 ||  currentHourlyPeriod <= 6) {
                         // Turn things off at night
                     }
@@ -542,13 +557,11 @@ void CheckForBump() // This is where we check to see if an interrupt is set when
                     }
                 }
                 if (DAILYPERIOD != currentDailyPeriod) {
-                    LogDailyEvent(t);
                     Serial.print(F("Day: "));
                     Serial.print(currentDailyPeriod);
                     Serial.print(F(" - count: "));
                     Serial.println(dailyPersonCount);
-                    dailyPersonCount = 0;    // Reset and increment the Person Count in the new period
-                    currentDailyPeriod = DAILYPERIOD;  // Change the time period
+                    LogDailyEvent(t);
                 }
                 hourlyPersonCount++;                    // Increment the PersonCount
                 FRAMwrite16(CURRENTHOURLYCOUNTADDR, hourlyPersonCount);  // Load Hourly Count to memory
@@ -600,7 +613,7 @@ void StartStopTest(boolean startTest)  // Since the test can be started from the
         TakeTheBus();
             source = readRegister(0x22);     // Reads the PULSE_SRC register to reset it
         GiveUpTheBus();
-        attachInterrupt(1, WakeUpNow, LOW);   // use interrupt 1 (pin 3) and run wakeUpNow when pin 3 goes LOW
+        attachInterrupt(digitalPinToInterrupt(INT2PIN), WakeUpNow, LOW);   // use interrupt and run wakeUpNow when pin 3 goes LOW
         Serial.println(F("Test Started"));
     }
     else {
@@ -609,7 +622,7 @@ void StartStopTest(boolean startTest)  // Since the test can be started from the
         Serial.println(FRAMread8(CONTROLREGISTER));
         TakeTheBus();
             source = readRegister(0x22);  // Reads the PULSE_SRC register to reset it
-            detachInterrupt(1);           // disables interrupt 1 on pin 3 so the program can execute
+            detachInterrupt(digitalPinToInterrupt(INT2PIN));           // disables interrupt so the program can execute
             t = RTC.get();
         GiveUpTheBus();
         FRAMwrite16(CURRENTDAILYCOUNTADDR, dailyPersonCount);   // Load Daily Count to memory
@@ -636,6 +649,8 @@ void LogHourlyEvent(time_t LogTime) // Log Hourly Event()
     FRAMwrite8(pointer+HOURLYBATTOFFSET,stateOfCharge);
     unsigned int newHourlyPointerAddr = (FRAMread16(HOURLYPOINTERADDR)+1) % HOURLYCOUNTNUMBER;  // This is where we "wrap" the count to stay in our memory space
     FRAMwrite16(HOURLYPOINTERADDR,newHourlyPointerAddr);
+    hourlyPersonCount = 0;                    // Reset and increment the Person Count in the new period
+    currentHourlyPeriod = HOURLYPERIOD;  // Change the time period
 }
 
 
@@ -655,6 +670,8 @@ void LogDailyEvent(time_t LogTime) // Log Daily Event()
     FRAMwrite8(pointer+DAILYBATTOFFSET,stateOfCharge);
     byte newDailyPointerAddr = (FRAMread8(DAILYPOINTERADDR)+1) % DAILYCOUNTNUMBER;  // This is where we "wrap" the count to stay in our memory space
     FRAMwrite8(DAILYPOINTERADDR,newDailyPointerAddr);
+    dailyPersonCount = 0;    // Reset and increment the Person Count in the new period
+    currentDailyPeriod = DAILYPERIOD;  // Change the time period
 }
 
 
@@ -887,14 +904,14 @@ void sleepNow()         // here we put the arduino to sleep
      * In all but the IDLE sleep modes only LOW can be used.
      */
     
-    attachInterrupt(1,WakeUpNow, LOW); // use interrupt 1 (pin 3) and run function
+    attachInterrupt(digitalPinToInterrupt(INT2PIN),WakeUpNow, LOW); // use interrupt and run function
     
     sleep_mode();            // here the device is actually put to sleep!!
     // THE PROGRAM CONTINUES FROM HERE AFTER WAKING UP
     
     sleep_disable();         // first thing after waking from sleep:
     // disable sleep...
-    detachInterrupt(1);      // disables interrupt 1 on pin 3 so the
+    detachInterrupt(digitalPinToInterrupt(INT2PIN));      // disables interrupt
     // wakeUpNow code will not be executed
     // during normal running time.
     //    digitalWrite(BLUEFRUITPWR,HIGH);   // Turn on the Bluefruit UART

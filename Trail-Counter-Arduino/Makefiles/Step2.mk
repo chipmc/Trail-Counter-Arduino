@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Jul 31, 2016 release 4.5.9
+# Last update: Aug 11, 2016 release 5.1.2
 
 
 
@@ -218,8 +218,9 @@ ifndef APP_LIB_OBJS
     FLAG = 1
     APP_LIB_C_SRC     = $(wildcard $(patsubst %,%/*.c,$(APP_LIBS))) # */
     APP_LIB_CPP_SRC   = $(wildcard $(patsubst %,%/*.cpp,$(APP_LIBS))) # */
-    APP_LIB_AS_SRC    = $(wildcard $(patsubst %,%/*.s,$(APP_LIBS))) # */
-    APP_LIB_OBJ_FILES = $(APP_LIB_C_SRC:.c=.c.o) $(APP_LIB_CPP_SRC:.cpp=.cpp.o) $(APP_LIB_AS_SRC:.s=.s.o)
+    APP_LIB_AS1_SRC   = $(wildcard $(patsubst %,%/*.s,$(APP_LIBS))) # */
+    APP_LIB_AS2_SRC   = $(wildcard $(patsubst %,%/*.S,$(APP_LIBS))) # */
+    APP_LIB_OBJ_FILES = $(APP_LIB_C_SRC:.c=.c.o) $(APP_LIB_CPP_SRC:.cpp=.cpp.o) $(APP_LIB_AS1_SRC:.s=.s.o) $(APP_LIB_AS2_SRC:.S=.S.o)
     APP_LIB_OBJS      = $(patsubst $(APPLICATION_PATH)/%,$(OBJDIR)/%,$(APP_LIB_OBJ_FILES))
 else
     FLAG = 0
@@ -390,7 +391,7 @@ endif
 
 ifeq ($(CPPFLAGS),)
     CPPFLAGS      = -$(MCU_FLAG_NAME)=$(MCU) -DF_CPU=$(F_CPU)
-    CPPFLAGS     += $(SYS_INCLUDES) -g $(OPTIMISATION) $(WARNING_FLAGS) -ffunction-sections -fdata-sections
+    CPPFLAGS     += $(SYS_INCLUDES) $(OPTIMISATION) $(WARNING_FLAGS) -ffunction-sections -fdata-sections
     CPPFLAGS     += $(EXTRA_CPPFLAGS) -I$(CORE_LIB_PATH)
 else
     CPPFLAGS     += $(SYS_INCLUDES)
@@ -1356,9 +1357,9 @@ else ifeq ($(UPLOADER),cc3200serial)
 		$(call SHOW,"10.12-UPLOAD",$(UPLOADER))
 
 		-killall openocd
-		@cp -r $(APP_TOOLS_PATH)/dll ./dll
+#		@cp -r $(APP_TOOLS_PATH)/dll ./dll
 		$(UPLOADER_EXEC) $(USED_SERIAL_PORT) $(TARGET_BIN)
-		@if [ -d ./dll ]; then rm -R ./dll; fi
+#		@if [ -d ./dll ]; then rm -R ./dll; fi
 # ~
     endif
 # ~~
@@ -1587,6 +1588,10 @@ size:
 		@echo 'Estimated Flash: ' $(shell $(FLASH_SIZE)) $(MAX_FLASH_BYTES); echo;
 		@echo 'Estimated SRAM:  ' $(shell $(RAM_SIZE)) $(MAX_RAM_BYTES); echo;
 		@echo 'Elapsed time:    ' $(STOPCHRONO)
+
+		@if [ $(shell $(FLASH_SIZE)) -gt $(MAX_FLASH_SIZE) ] ; then osascript -e 'tell application "System Events" to display dialog "Flash: $(shell $(FLASH_SIZE)) bytes used > $(MAX_FLASH_SIZE) available" buttons {"OK"} default button {"OK"} with icon POSIX file ("$(UTILITIES_PATH)/TemplateIcon.icns") with title "embedXcode" giving up after 5'; exit 2 ; fi
+		@if [ $(shell $(RAM_SIZE)) -gt $(MAX_RAM_SIZE) ] ; then osascript -e 'tell application "System Events" to display dialog "RAM: $(shell $(RAM_SIZE)) bytes used > $(MAX_RAM_SIZE) available " buttons {"OK"} default button {"OK"} with icon POSIX file ("$(UTILITIES_PATH)/TemplateIcon.icns") with title "embedXcode" giving up after 5'; exit 2 ; fi
+
 #		@if [ -f $(TARGET_HEX) ]; then echo 'Binary sketch size:  ' $(shell $(FLASH_SIZE)) $(MAX_FLASH_BYTES); echo; fi
 #		@if [ -f $(TARGET_BIN) ]; then echo 'Binary sketch size:  ' $(shell $(FLASH_SIZE)) $(MAX_FLASH_BYTES); echo; fi
 #		@if [ -f $(TARGET_DOT) ]; then echo 'Binary sketch size:  ' $(shell $(FLASH_SIZE)) $(MAX_FLASH_BYTES); echo; fi

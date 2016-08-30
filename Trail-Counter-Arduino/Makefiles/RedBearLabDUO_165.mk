@@ -17,7 +17,7 @@ include $(MAKEFILE_PATH)/About.mk
 # ----------------------------------
 #
 PLATFORM         := RedBearLab
-PLATFORM_TAG      = ARDUINO=10607 EMBEDXCODE=$(RELEASE_NOW) REDBEARLAB_DUO
+PLATFORM_TAG      = ARDUINO=10610 EMBEDXCODE=$(RELEASE_NOW) REDBEARLAB_DUO
 APPLICATION_PATH := $(REDBEARLAB_DUO_PATH)
 PLATFORM_VERSION := Duo $(REDBEARLAB_DUO_RELEASE) for Arduino $(ARDUINO_CC_RELEASE)
 
@@ -39,7 +39,7 @@ HARDWARE_PATH     = $(APPLICATION_PATH)/hardware/STM32F2/$(REDBEARLAB_DUO_RELEAS
 # to
 #   compiler.path={runtime.tools.arm-none-eabi-gcc-redbear-4.9-2015-q3.path}/bin/
 #
-ifneq ($(wildcard $(APPLICATION_PATH)/tools/arm-none-eabi-gcc/*),)
+ifneq ($(wildcard $(APPLICATION_PATH)/tools/arm-none-eabi-gcc/*),) # */
     TOOL_CHAIN_PATH   = $(APPLICATION_PATH)/tools/arm-none-eabi-gcc/$(DUO_GCC_ARM_RELEASE)
 else
     TOOL_CHAIN_PATH   = $(APPLICATION_PATH)/tools/arm-none-eabi-gcc-redbear/$(DUO_GCC_ARM_RELEASE)

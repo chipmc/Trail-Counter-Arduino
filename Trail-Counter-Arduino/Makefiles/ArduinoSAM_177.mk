@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Jul 02, 2016 release 4.5.7
+# Last update: Aug 16, 2016 release 5.1.4
 
 #ifneq ($(shell grep 1.5 $(ARDUINO_PATH)/lib/version.txt),)
 #    WARNING_MESSAGE = Arduino 1.0.x is replaced by Arduino 1.6.1 or 1.7.x.
@@ -117,6 +117,7 @@ APP_LIB_PATH    += $(APPLICATION_PATH)/hardware/arduino/$(BUILD_CORE)/libraries
 a1500    = $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%,$(APP_LIBS_LIST)))
 a1500   += $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%/utility,$(APP_LIBS_LIST)))
 a1500   += $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%/src,$(APP_LIBS_LIST)))
+a1500   += $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%/src/utility,$(APP_LIBS_LIST)))
 a1500   += $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%/src/arch/$(BUILD_CORE),$(APP_LIBS_LIST)))
 a1500   += $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%/src/$(BUILD_CORE),$(APP_LIBS_LIST)))
 
@@ -153,6 +154,13 @@ USB_FLAGS   += -DUSB_PRODUCT='$(USB_PRODUCT)'
 USB_TOUCH := $(call PARSE_BOARD,$(BOARD_TAG),upload.protocol)
 USB_RESET  = python $(UTILITIES_PATH)/reset_1200.py
 
+# ~
+ifeq ($(MAKECMDGOALS),debug)
+    OPTIMISATION   = -O0 -g
+else
+    OPTIMISATION   = -Os
+endif
+# ~~
 
 INCLUDE_PATH    = $(CORE_LIB_PATH) $(APP_LIB_PATH) $(VARIANT_PATH)
 INCLUDE_PATH   += $(sort $(dir $(APP_LIB_CPP_SRC) $(APP_LIB_C_SRC) $(APP_LIB_H_SRC)))

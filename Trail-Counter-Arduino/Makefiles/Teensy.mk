@@ -19,7 +19,7 @@
 # ----------------------------------
 #
 PLATFORM         := Teensy
-PLATFORM_TAG      = ARDUINO=10605 TEENSY_CORE EMBEDXCODE=$(RELEASE_NOW)
+PLATFORM_TAG      = ARDUINO=10610 TEENSY_CORE EMBEDXCODE=$(RELEASE_NOW)
 APPLICATION_PATH := $(TEENSY_PATH)
 
 t001 = $(APPLICATION_PATH)/lib/teensyduino.txt
@@ -53,6 +53,7 @@ APP_LIB_PATH     := $(APPLICATION_PATH)/hardware/teensy/avr/libraries
 a1000    = $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%,$(APP_LIBS_LIST)))
 a1000   += $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%/utility,$(APP_LIBS_LIST)))
 a1000   += $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%/src,$(APP_LIBS_LIST)))
+a1000   += $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%/src/utility,$(APP_LIBS_LIST)))
 a1000   += $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%/src/arch/$(BUILD_CORE),$(APP_LIBS_LIST)))
 a1000   += $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%/src/$(BUILD_CORE),$(APP_LIBS_LIST)))
 

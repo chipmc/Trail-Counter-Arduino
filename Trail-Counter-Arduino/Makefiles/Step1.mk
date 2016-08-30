@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Jul 31, 2016 release 4.5.9
+# Last update: Jul 22, 2016 release 5.1.0
 
 
 
@@ -169,10 +169,11 @@ ARDUINO_ORG_SAMD_BOARDS = $(ARDUINO_ORG_PATH)/hardware/arduino/samd/boards.txt
 
 # Other IDEs
 #
-WIRING_APP    = $(APPLICATIONS_PATH)/Wiring.app
-ENERGIA_APP   = $(APPLICATIONS_PATH)/Energia.app
-MAPLE_APP     = $(APPLICATIONS_PATH)/MapleIDE.app
-MBED_APP      = $(EMBEDXCODE_APP)/mbed-$(MBED_SDK_RELEASE)
+WIRING_APP       = $(APPLICATIONS_PATH)/Wiring.app
+ENERGIA_APP      = $(APPLICATIONS_PATH)/Energia.app
+ENERGIA_18_APP   = $(APPLICATIONS_PATH)/Energia.app
+MAPLE_APP        = $(APPLICATIONS_PATH)/MapleIDE.app
+MBED_APP         = $(EMBEDXCODE_APP)/mbed-$(MBED_SDK_RELEASE)
 # ~
 EDISON_YOCTO_APP     = $(EMBEDXCODE_APP)/EdisonYocto
 BEAGKE_DEBIAN_APP    = $(EMBEDXCODE_APP)/BeagleBone
@@ -446,6 +447,47 @@ endif
 endif # end  ArduinoCC 1.6.5
 
 
+# Additional boards for Energia 18 Boards Manager
+# ----------------------------------
+# Energia.app
+#
+
+ENERGIA_PACKAGES_PATH = $(HOME)/Library/Energia15/packages/energia
+
+ENERGIA_18_PATH    = $(ENERGIA_18_APP)/Contents/Java
+ENERGIA_18_MSP430_BOARDS       = $(ENERGIA_18_PATH)/hardware/energia/msp430/boards.txt
+#ENERGIA_18_C2000_BOARDS        = $(ENERGIA_18_PATH)/hardware/c2000/boards.txt
+
+ENERGIA_TIVAC_1    = $(ENERGIA_PACKAGES_PATH)/hardware/tivac/$(ENERGIA_TIVAC_RELEASE)
+ifneq ($(wildcard $(ENERGIA_TIVAC_1)),)
+    ENERGIA_TIVAC_APP    = $(ENERGIA_TIVAC_1)
+    ENERGIA_TIVAC_PATH   = $(ENERGIA_PACKAGES_PATH)
+    ENERGIA_18_TIVAC_BOARDS = $(ENERGIA_TIVAC_1)/boards.txt
+endif
+
+ENERGIA_CC3200_1    = $(ENERGIA_PACKAGES_PATH)/hardware/cc3200/$(ENERGIA_CC3200_RELEASE)
+ifneq ($(wildcard $(ENERGIA_CC3200_1)),)
+    ENERGIA_CC3200_APP    = $(ENERGIA_CC3200_1)
+    ENERGIA_CC3200_PATH   = $(ENERGIA_PACKAGES_PATH)
+    ENERGIA_18_CC3200_BOARDS = $(ENERGIA_CC3200_1)/boards.txt
+endif
+
+#ENERGIA_CC3200_EMT_1    = $(ENERGIA_PACKAGES_PATH)/cc3200emt/$(ENERGIA_CC3200_EMT_RELEASE)
+#ifneq ($(wildcard $(ENERGIA_CC3200_EMT_1)),)
+#    ENERGIA_CC3200_EMT_APP    = $(ENERGIA_CC3200_EMT_1)
+#    ENERGIA_CC3200_EMT_PATH   = $(ENERGIA_CC3200_EMT_APP)
+#    ENERGIA_18_CC3200_EMT_BOARDS = $(ENERGIA_CC3200_EMT_1)/boards.txt
+#endif
+
+#ENERGIA_18_CC2600_EMT_BOARDS   = $(ENERGIA_18_PATH)/hardware/cc2600emt/boards.txt
+ENERGIA_MSP432_EMT_1    = $(ENERGIA_PACKAGES_PATH)/hardware/msp432/$(ENERGIA_MSP432_EMT_RELEASE)
+ifneq ($(wildcard $(ENERGIA_MSP432_EMT_1)),)
+    ENERGIA_MSP432_EMT_APP    = $(ENERGIA_MSP432_EMT_1)
+    ENERGIA_MSP432_EMT_PATH   = $(ENERGIA_PACKAGES_PATH)
+    ENERGIA_18_MSP432_EMT_BOARDS = $(ENERGIA_MSP432_EMT_1)/boards.txt
+endif
+
+
 # Other boards
 # ----------------------------------
 #
@@ -498,7 +540,7 @@ ifeq ($(wildcard $(ARDUINO_CC_APP)),)
 ifeq ($(wildcard $(ESP8266_APP)),)
     ifeq ($(wildcard $(LINKIT_ARM_APP)),)
     ifeq ($(wildcard $(WIRING_APP)),)
-    ifeq ($(wildcard $(ENERGIA_APP)),)
+    ifeq ($(wildcard $(ENERGIA_18_APP)),)
     ifeq ($(wildcard $(MAPLE_APP)),)
         ifeq ($(wildcard $(TEENSY_APP)),)
         ifeq ($(wildcard $(DIGISTUMP_APP)),)
@@ -568,6 +610,8 @@ MICRODUINO_AVR_BOARDS       = $(MICRODUINO_PATH)/hardware/Microduino/avr/boards.
 TEENSY_PATH     = $(TEENSY_APP)/Contents/Java
 TEENSY_BOARDS   = $(TEENSY_PATH)/hardware/teensy/avr/boards.txt
 
+# Old Energia
+#
 ENERGIA_PATH                = $(ENERGIA_APP)/Contents/Resources/Java
 ENERGIA_MSP430_BOARDS       = $(ENERGIA_PATH)/hardware/msp430/boards.txt
 ENERGIA_C2000_BOARDS        = $(ENERGIA_PATH)/hardware/c2000/boards.txt
@@ -747,17 +791,27 @@ ifneq ($(MAKECMDGOALS),boards)
         else ifneq ($(call PARSE_FILE,$(BOARD_TAG),name,$(CHIPKIT_BOARDS)),)
             include $(MAKEFILE_PATH)/chipKIT_165.mk
 
+        # Energia 18
+        else ifneq ($(call PARSE_FILE,$(BOARD_TAG_18),name,$(ENERGIA_18_MSP430_BOARDS)),)
+            include $(MAKEFILE_PATH)/EnergiaMSP430_18.mk
+        else ifneq ($(call PARSE_FILE,$(BOARD_TAG_18),name,$(ENERGIA_18_TIVAC_BOARDS)),)
+            include $(MAKEFILE_PATH)/EnergiaTIVAC_18.mk
+        else ifneq ($(call PARSE_FILE,$(BOARD_TAG_18),name,$(ENERGIA_18_CC3200_BOARDS)),)
+            include $(MAKEFILE_PATH)/EnergiaCC3200_18.mk
+        else ifneq ($(call PARSE_FILE,$(BOARD_TAG_18),name,$(ENERGIA_18_MSP432_EMT_BOARDS)),)
+            include $(MAKEFILE_PATH)/EnergiaMSP432EMT_18.mk
+
         # Energia
         else ifneq ($(call PARSE_FILE,$(BOARD_TAG),name,$(ENERGIA_MSP430_BOARDS)),)
-            include $(MAKEFILE_PATH)/EnergiaMSP430.mk$
-        else ifneq ($(call PARSE_FILE,$(BOARD_TAG),name,$(ENERGIA_C2000_BOARDS)),)
-            include $(MAKEFILE_PATH)/EnergiaC2000.mk
+            include $(MAKEFILE_PATH)/EnergiaMSP430.mk
         else ifneq ($(call PARSE_FILE,$(BOARD_TAG),name,$(ENERGIA_LM4F_BOARDS)),)
             include $(MAKEFILE_PATH)/EnergiaLM4F.mk
         else ifneq ($(call PARSE_FILE,$(BOARD_TAG),name,$(ENERGIA_CC3200_BOARDS)),)
             include $(MAKEFILE_PATH)/EnergiaCC3200.mk
         else ifneq ($(call PARSE_FILE,$(BOARD_TAG),name,$(ENERGIA_MSP432_EMT_BOARDS)),)
             include $(MAKEFILE_PATH)/EnergiaMSP432EMT.mk
+        else ifneq ($(call PARSE_FILE,$(BOARD_TAG),name,$(ENERGIA_C2000_BOARDS)),)
+            include $(MAKEFILE_PATH)/EnergiaC2000.mk
         else ifneq ($(call PARSE_FILE,$(BOARD_TAG),name,$(ENERGIA_CC3200_EMT_BOARDS)),)
             include $(MAKEFILE_PATH)/EnergiaCC3200EMT.mk
         else ifneq ($(call PARSE_FILE,$(BOARD_TAG),name,$(ENERGIA_CC2600_EMT_BOARDS)),)

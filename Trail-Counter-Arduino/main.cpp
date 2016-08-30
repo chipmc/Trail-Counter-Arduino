@@ -20,7 +20,7 @@
 // THE SKETCH IS IN Trail_Counter_Arduino.cpp
 // ----------------------------------
 //
-// Last update: Mar 28, 2015 release 4.4.2
+// Last update: Aug 12, 2016 release 5.1.3
 
 // IDE selection
 #if defined(EMBEDXCODE)
@@ -704,9 +704,186 @@ int main(void)
     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
+/*  RELEASE 2.2.0 only
+
+    //This may be used to change user task stack size:
+    //#define CONT_STACKSIZE 4096
+    #include <Arduino.h>
+    extern "C" {
+    #include "ets_sys.h"
+    #include "os_type.h"
+    #include "osapi.h"
+    #include "mem.h"
+    #include "user_interface.h"
+    #include "cont.h"
+    }
+    #define LOOP_TASK_PRIORITY 0
+    #define LOOP_QUEUE_SIZE    1
+
+    #define OPTIMISTIC_YIELD_TIME_US 16000
+
+    struct rst_info resetInfo;
+
+    int atexit(void (*func)())
+    {
+    return 0;
+    }
+
+    extern "C" void ets_update_cpu_frequency(int freqmhz);
+    void initVariant() __attribute__((weak));
+    void initVariant()
+    {
+    }
+
+    extern void loop();
+    extern void setup();
+
+    void preloop_update_frequency() __attribute__((weak));
+    void preloop_update_frequency()
+    {
+    #if defined(F_CPU) && (F_CPU == 160000000L)
+    REG_SET_BIT(0x3ff00014, BIT(0));
+    ets_update_cpu_frequency(160);
+    #endif
+    }
+
+    extern void (*__init_array_start)(void);
+    extern void (*__init_array_end)(void);
+
+    cont_t g_cont __attribute__((aligned(16)));
+    static os_event_t g_loop_queue[LOOP_QUEUE_SIZE];
+
+    static uint32_t g_micros_at_task_start;
+
+    extern "C" void esp_yield()
+    {
+    if (cont_can_yield(&g_cont))
+    {
+        cont_yield(&g_cont);
+    }
+    }
+
+    extern "C" void esp_schedule()
+    {
+    system_os_post(LOOP_TASK_PRIORITY, 0, 0);
+    }
+
+extern "C" void __yield()
+{
+    if (cont_can_yield(&g_cont))
+    {
+        esp_schedule();
+        esp_yield();
+    }
+    else
+    {
+        panic();
+    }
+    }
+
+    extern "C" void yield(void) __attribute__((weak, alias("__yield")));
+
+    extern "C" void optimistic_yield(uint32_t interval_us)
+    {
+    if (cont_can_yield(&g_cont) &&
+        (system_get_time() - g_micros_at_task_start) > interval_us)
+    {
+        yield();
+    }
+
+    static void loop_wrapper()
+    {
+    static bool setup_done = false;
+    if (!setup_done)
+    {
+        setup();
+        setup_done = true;
+    }
+    preloop_update_frequency();
+    loop();
+    esp_schedule();
+    }
+
+static void loop_task(os_event_t *events)
+{
+    g_micros_at_task_start = system_get_time();
+    cont_run(&g_cont, &loop_wrapper);
+    if (cont_check(&g_cont) != 0)
+    {
+        panic();
+    }
+    }
+
+    static void do_global_ctors(void)
+    {
+    void (**p)(void);
+    for (p = &__init_array_start; p != &__init_array_end; ++p)
+    {
+        (*p)();
+    }
+    }
+
+    extern "C" void __gdb_init() {}
+    extern "C" void gdb_init(void) __attribute__((weak, alias("__gdb_init")));
+
+    void init_done()
+    {
+    system_set_os_print(1);
+    gdb_init();
+    do_global_ctors();
+    esp_schedule();
+    }
+
+
+    extern "C" void user_init(void)
+    {
+    struct rst_info *rtc_info_ptr = system_get_rst_info();
+    memcpy((void *) &resetInfo, (void *) rtc_info_ptr, sizeof(resetInfo));
+
+    uart_div_modify(0, UART_CLK_FREQ / (115200));
+
+    init();
+
+    initVariant();
+
+    cont_init(&g_cont);
+
+    system_os_task(loop_task,
+                   LOOP_TASK_PRIORITY, g_loop_queue,
+                   LOOP_QUEUE_SIZE);
+
+    system_init_done_cb(&init_done);
+}
+*/
+
+/*  RELEASE 2.3.0 only
+*/
+/*
+    main.cpp - platform initialization and context switching
+    emulation
+
+    Copyright (c) 2014 Ivan Grokhotkov. All rights reserved.
+    This file is part of the esp8266 core for Arduino environment.
+
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+*/
+
 //This may be used to change user task stack size:
 //#define CONT_STACKSIZE 4096
 #include <Arduino.h>
+#include "Schedule.h"
 extern "C" {
 #include "ets_sys.h"
 #include "os_type.h"
@@ -715,12 +892,24 @@ extern "C" {
 #include "user_interface.h"
 #include "cont.h"
 }
-#define LOOP_TASK_PRIORITY 0
+#include <core_version.h>
+
+#define LOOP_TASK_PRIORITY 1
 #define LOOP_QUEUE_SIZE    1
 
 #define OPTIMISTIC_YIELD_TIME_US 16000
 
 struct rst_info resetInfo;
+
+extern "C" {
+    extern const uint32_t __attribute__((section(".ver_number"))) core_version = ARDUINO_ESP8266_GIT_VER;
+    const char* core_release =
+#ifdef ARDUINO_ESP8266_RELEASE
+        ARDUINO_ESP8266_RELEASE;
+#else
+    NULL;
+#endif
+} // extern "C"
 
 int atexit(void (*func)())
 {
@@ -763,7 +952,7 @@ extern "C" void esp_yield()
 
 extern "C" void esp_schedule()
 {
-    system_os_post(LOOP_TASK_PRIORITY, 0, 0);
+    ets_post(LOOP_TASK_PRIORITY, 0, 0);
 }
 
 extern "C" void __yield()
@@ -793,13 +982,17 @@ extern "C" void optimistic_yield(uint32_t interval_us)
 static void loop_wrapper()
 {
     static bool setup_done = false;
+    preloop_update_frequency();
     if (!setup_done)
     {
         setup();
+#ifdef DEBUG_ESP_PORT
+        DEBUG_ESP_PORT.setDebugOutput(true);
+#endif
         setup_done = true;
     }
-    preloop_update_frequency();
     loop();
+    run_scheduled_functions();
     esp_schedule();
 }
 
@@ -815,21 +1008,25 @@ static void loop_task(os_event_t *events)
 
 static void do_global_ctors(void)
 {
-    void (**p)(void);
-    for (p = &__init_array_start; p != &__init_array_end; ++p)
+    void (**p)(void) = &__init_array_end;
+    while (p != &__init_array_start)
     {
-        (*p)();
+        (*--p)();
     }
 }
 
 extern "C" void __gdb_init() {}
 extern "C" void gdb_init(void) __attribute__((weak, alias("__gdb_init")));
 
+extern "C" void __gdb_do_break() {}
+extern "C" void gdb_do_break(void) __attribute__((weak, alias("__gdb_do_break")));
+
 void init_done()
 {
     system_set_os_print(1);
     gdb_init();
     do_global_ctors();
+    printf("\n%08x\n", core_version);
     esp_schedule();
 }
 
@@ -847,9 +1044,9 @@ extern "C" void user_init(void)
 
     cont_init(&g_cont);
 
-    system_os_task(loop_task,
-                   LOOP_TASK_PRIORITY, g_loop_queue,
-                   LOOP_QUEUE_SIZE);
+    ets_task(loop_task,
+             LOOP_TASK_PRIORITY, g_loop_queue,
+             LOOP_QUEUE_SIZE);
 
     system_init_done_cb(&init_done);
 }
@@ -910,8 +1107,8 @@ static volatile uint32_t TimingLED;
 static volatile uint32_t TimingIWDGReload;
 
 #ifdef MEASURE_LOOP_FREQUENCY
-    static volatile uint32_t loop_counter;
-    static volatile uint32_t loop_frequency;
+static volatile uint32_t loop_counter;
+static volatile uint32_t loop_frequency;
 #endif
 
 /* Extern variables ----------------------------------------------------------*/
@@ -1116,9 +1313,9 @@ void app_setup_and_loop(void)
 /*******************************************************************************
     Function Name  : assert_failed
     Description    : Reports the name of the source file and the source line number
-                    where the assert_param error has occurred.
+    where the assert_param error has occurred.
     Input          : - file: pointer to the source file name
-                    - line: assert_param error line source number
+    - line: assert_param error line source number
     Output         : None
     Return         : None
  *******************************************************************************/
@@ -1209,9 +1406,9 @@ int main(void)
 #include <System_Defs.h>
 
 #if (ARDUINO >= 100)
-    #include <Arduino.h>
+#include <Arduino.h>
 #else
-    #include <WProgram.h>
+#include <WProgram.h>
 #endif
 
 extern "C" {
@@ -1292,7 +1489,7 @@ int main(void)
 #include "rtosTasks.h"
 
 
-#if defined(__CC3200R1M1RGC__) || defined(__CC3200R1MXRGCR__)
+#if defined(__CC3200R1M1RGC__) || defined(__CC3200R1MXRGCR__) || defined(ENERGIA_ARCH_CC3200)
 #warning MAIN_SECTION 7 = CC3200 EMT
 // ----------------------------------------------------------------------------- LaunchPad CC3200 with RTOS specific
 
@@ -1469,7 +1666,7 @@ int main()
 }
 
 
-#elif defined(__MSP432P401R__)
+#elif defined(__MSP432P401R__) || defined(ENERGIA_ARCH_MSP432)
 #warning MAIN_SECTION 8 = MSP432 EMT
 // ----------------------------------------------------------------------------- LaunchPad MSP432 with RTOS specific
 
@@ -1831,7 +2028,7 @@ int main()
 #elif defined(ENERGIA)
 // ============================================================================= Energia Standard
 
-#if defined(__CC3200R1M1RGC__) || defined(__CC3200R1MXRGCR__)
+#if defined(__CC3200R1M1RGC__) || defined(__CC3200R1MXRGCR__) || defined(ENERGIA_ARCH_CC3200)
 #warning MAIN_SECTION 10 = CC3200 standard
 // ----------------------------------------------------------------------------- LaunchPad CC3200 specific
 
@@ -1915,20 +2112,20 @@ int main(void)
 }
 
 
-#elif defined(__LM4F120H5QR__) || defined(__TM4C1230C3PM__) || defined(__TM4C129XNCZAD__) || defined(__TM4C123GH6PM__)
+#elif defined(__LM4F120H5QR__) || defined(__TM4C1230C3PM__) || defined(__TM4C129XNCZAD__) || defined(__TM4C123GH6PM__) || defined(ENERGIA_ARCH_TIVAC)
 #warning MAIN_SECTION 12 = LM4F standard
 // ----------------------------------------------------------------------------- LaunchPad Stellaris and Tiva specific
 
 #include <Energia.h>
 
 #if defined(PART_TM4C129XNCZAD)
-    #include "inc/tm4c129xnczad.h"
+#include "inc/tm4c129xnczad.h"
 #elif defined(PART_TM4C1294NCPDT)
-    #include "inc/tm4c1294ncpdt.h"
+#include "inc/tm4c1294ncpdt.h"
 #elif defined(PART_TM4C1233H6PM) || defined(PART_LM4F120H5QR)
-    #include "inc/tm4c123gh6pm.h"
+#include "inc/tm4c123gh6pm.h"
 #else
-    #error "**** No PART defined or unsupported PART ****"
+#error "**** No PART defined or unsupported PART ****"
 #endif
 
 #include "inc/hw_gpio.h"
