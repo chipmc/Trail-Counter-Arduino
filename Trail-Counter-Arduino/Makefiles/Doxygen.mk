@@ -7,7 +7,7 @@
 # http://embedxcode.weebly.com
 # All rights reserved
 #
-# Last update: Apr 18, 2016 release 4.4.8
+# Last update: Aug 20, 2016 release 5.1.6
 #
 
 
@@ -140,4 +140,4 @@ endif
 	@echo "==== Style done ===="
 # ~~
 
-
+.PHONY:	document0 document1 document2 document3 document4 message_document document distribute style

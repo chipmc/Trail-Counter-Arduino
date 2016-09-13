@@ -133,6 +133,7 @@
 #include <avr/sleep.h>          // For Sleep Code
 #include "MAX17043.h"           // Drives the LiPo Fuel Gauge
 #include <Wire.h>               //http://arduino.cc/en/Reference/Wire (included with Arduino IDE)
+#include <TimeLib.h>
 #include "DS3232RTC.h"          //http://github.com/JChristensen/DS3232RTC
 #include "Time.h"               //http://www.arduino.cc/playground/Code/Time
 #include "Adafruit_FRAM_I2C.h"  // Library for FRAM functions
@@ -229,7 +230,7 @@ void setup()
     pinMode(REDLED, OUTPUT);              // declare the Red LED Pin as an output
     pinMode(YELLOWLED, OUTPUT);           // declare the Yellow LED Pin as as OUTPUT
     pinMode(LEDPWR, OUTPUT);            // declare the Bluetooth Dongle Power pin as as OUTPUT
-    digitalWrite(LEDPWR, LOW);          // Turn on the power to the LEDs
+    digitalWrite(LEDPWR, HIGH);          // Turn off the power to the LEDs
     pinMode(INT2PIN, INPUT);            // Set up the interrupt pins, they're set as active low with an external pull-up
     
     
@@ -243,7 +244,7 @@ void setup()
             Serial.println(F(" time sync fail!"));
             BlinkForever();
         }
-        enable32Khz(1); // turns on the 32k squarewave - need to test effect on power
+    enable32Khz(1); // turns on the 32k squarewave - need to test effect on power
     
         if (fram.begin()) {  // you can stick the new i2c addr in here, e.g. begin(0x51);
             Serial.println(F("Found I2C FRAM"));
@@ -513,9 +514,16 @@ void loop()
         }
         else if (controlRegisterValue & signalClearCounts)
         {
+            TakeTheBus();
+                t = RTC.get();
+            GiveUpTheBus();
             controlRegisterValue &= clearClearCounts;
+            FRAMwrite8(CONTROLREGISTER, controlRegisterValue);
             hourlyPersonCount = 0;
             dailyPersonCount = 0;
+            FRAMwrite16(CURRENTHOURLYCOUNTADDR, hourlyPersonCount);  // Load Hourly Count to memory
+            FRAMwrite16(CURRENTDAILYCOUNTADDR, dailyPersonCount);   // Load Daily Count to memory
+            FRAMwrite32(CURRENTCOUNTSTIME, t);   // Write to FRAM - this is so we know when the last counts were saved
             Serial.println(F("Current Counts Cleared as Ordered"));
         }
         else if (((controlRegisterValue & toggleLEDs) >> 3) && !LEDSon)
@@ -601,6 +609,10 @@ void StartStopTest(boolean startTest)  // Since the test can be started from the
         lastHour = tm.Hour;
         lastDate = tm.Day;
         Serial.println("Restoring Counts");
+        Serial.print("CURRENTDAILYCOUNTADDR - ");
+        Serial.println(CURRENTDAILYCOUNTADDR);
+        Serial.print("CURRENTHOURLYCOUNTADDR");
+        Serial.println(CURRENTHOURLYCOUNTADDR);
         dailyPersonCount = FRAMread16(CURRENTDAILYCOUNTADDR);  // Load Daily Count from memory
         hourlyPersonCount = FRAMread16(CURRENTHOURLYCOUNTADDR);  // Load Hourly Count from memory
         if (currentDailyPeriod != lastDate) {

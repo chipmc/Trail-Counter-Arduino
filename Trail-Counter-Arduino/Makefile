@@ -26,7 +26,7 @@
 #	LiquidCrystal Robot_Control Robot_Motor RobotIRremote SD Servo 
 #	SpacebrewYun Stepper Temboo TFT WiFi 
 #
-APP_LIBS_LIST = Wire
+APP_LIBS_LIST = Wire Timelib
 
 # List user's libraries here 
 # default = 0 = none
@@ -42,7 +42,7 @@ APP_LIBS_LIST = Wire
 #	RunningAverage SdFat Servo SFE_CC3000 SFE_MicroOLED SoftI2CMaster 
 #	SPIFlash Temboo Time TinyWireM Twitter U8glib Ubidots 
 #
-USER_LIBS_LIST = MAX17043 Adafruit_FRAM_I2C Time DS3232RTC
+USER_LIBS_LIST = MAX17043 Adafruit_FRAM_I2C DS3232RTC Time
 
 # List local libraries here
 # default = empty = all
@@ -155,6 +155,27 @@ MAKEFILE_PATH  = $(CURRENT_DIR)/Makefiles
 UTILITIES_PATH = $(CURRENT_DIR)/Utilities
 
 include $(MAKEFILE_PATH)/Step1.mk
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

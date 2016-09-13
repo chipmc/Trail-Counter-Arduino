@@ -13,6 +13,7 @@
 
 
 include $(MAKEFILE_PATH)/About.mk
+INFO_MESSAGE = Built with ArduinoORG SAMD $(ARDUINO_ORG_RELEASE)
 
 # ArduinoORG 1.7.7 SAMD specifics
 # ----------------------------------

@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Aug 11, 2016 release 5.1.2
+# Last update: Aug 28, 2016 release 5.1.9
 
 
 
@@ -67,6 +67,8 @@ else
             else ifeq ($(UPLOADER),spark_usb)
 #                        $(shell ls -1 $(BOARD_PORT) > $(UTILITIES_PATH)/serial.txt)
 # ~
+            else ifeq ($(UPLOADER),jlink)
+
             else ifeq ($(UPLOADER),spark_wifi)
 #                        $(shell ls -1 $(BOARD_PORT) > $(UTILITIES_PATH)/serial.txt)
 # ~~
@@ -391,7 +393,7 @@ endif
 
 ifeq ($(CPPFLAGS),)
     CPPFLAGS      = -$(MCU_FLAG_NAME)=$(MCU) -DF_CPU=$(F_CPU)
-    CPPFLAGS     += $(SYS_INCLUDES) $(OPTIMISATION) $(WARNING_FLAGS) -ffunction-sections -fdata-sections
+    CPPFLAGS     += $(SYS_INCLUDES) -g $(OPTIMISATION) $(WARNING_FLAGS) -ffunction-sections -fdata-sections
     CPPFLAGS     += $(EXTRA_CPPFLAGS) -I$(CORE_LIB_PATH)
 else
     CPPFLAGS     += $(SYS_INCLUDES)
@@ -1169,13 +1171,13 @@ endif
 ifneq ($(COMMAND_PREPARE),)
 		$(call SHOW,"10.80-PREPARE",$(UPLOADER))
 
-		$(COMMAND_PREPARE)
+		$(QUIET)$(COMMAND_PREPARE)
 endif
 
 ifneq ($(COMMAND_UPLOAD),)
 		$(call SHOW,"10.90-UPLOAD",$(UPLOADER))
 
-		$(COMMAND_UPLOAD)
+		$(QUIET)$(COMMAND_UPLOAD)
 # ~
 else ifeq ($(BOARD_PORT),pgm)
 		$(call SHOW,"10.1-UPLOAD",$(UPLOADER))
@@ -1387,7 +1389,7 @@ else ifeq ($(UPLOADER),dfu-util)
 else ifeq ($(UPLOADER),teensy_flash)
 		$(call SHOW,"10.15-UPLOAD",$(UPLOADER))
 
-		$(TEENSY_POST_COMPILE) -file=$(basename $(notdir $(TARGET_HEX))) -path="$(CURRENT_DIR_SPACE)/Builds" -tools=$(abspath $(TEENSY_FLASH_PATH))
+		$(TEENSY_POST_COMPILE) -file=$(basename $(notdir $(TARGET_HEX))) -path="$(CURRENT_DIR_SPACE)/Builds" -tools=$(abspath $(TEENSY_FLASH_PATH)) -board=$(call PARSE_BOARD,$(BOARD_TAG),build.board)
 		sleep 2
 		$(TEENSY_REBOOT)
 		sleep 2
@@ -1416,6 +1418,24 @@ else ifeq ($(UPLOADER),spark_usb)
 		$(UPLOADER_EXEC) $(UPLOADER_OPTS) "$(CURRENT_DIR)/$(TARGET_BIN)"
 
 # ~
+else ifeq ($(UPLOADER),jlink)
+    ifneq ($(MAKECMDGOALS),debug)
+		$(call SHOW,"10.31-UPLOAD",$(UPLOADER))
+
+        ifneq ($(COMMAND_PREPARE),)
+			@$(COMMAND_PREPARE)
+        endif
+
+        ifneq ($(COMMAND_POWER),)
+			@echo '. Board powered by J-Link'
+			$(COMMAND_POWER)
+        endif
+
+		$(UPLOADER_EXEC) $(UPLOADER_OPTS)
+    endif
+# ~~
+
+
 else ifeq ($(UPLOADER),spark_wifi)
 	$(call SHOW,"10.19-UPLOAD",$(UPLOADER))
     ifeq ($(SPARK_NAME),)
@@ -1469,13 +1489,12 @@ else ifeq ($(UPLOADER),stlink)
 # ~
     ifneq ($(MAKECMDGOALS),debug)
 # ~~
-		$(call SHOW,"10.23-UPLOAD",$(UPLOADER))
+		$(call SHOW,"10.29-UPLOAD",$(UPLOADER))
 
 		$(UPLOADER_PATH)/$(UPLOADER_EXEC) write $(CURRENT_DIR)/$(TARGET_BIN) $(UPLOADER_OPTS)
 # ~
     endif
 # ~~
-
 
 else ifeq ($(UPLOADER),BsLoader.jar)
 	$(call SHOW,"10.24-UPLOAD",$(UPLOADER))
@@ -1565,6 +1584,7 @@ serial:		reset
 # ~
 ifeq ($(BOARD_PORT),ssh)
     ifeq ($(BOARD_TAG),yun)
+		$(call SHOW,"11.5-SERIAL",$(UPLOADER))
 		osascript -e 'tell application "Terminal" to do script "$(UTILITIES_PATH_SPACE)/sshpass -p $(SSH_PASSWORD) ssh root@$(SSH_ADDRESS) exec telnet localhost 6571"'
     endif
 # ~~
@@ -1573,12 +1593,15 @@ else ifeq ($(AVRDUDE_NO_SERIAL_PORT),1)
 		@echo "The programmer provides no serial port"
 
 else ifeq ($(UPLOADER),teensy_flash)
+		$(call SHOW,"11.6-SERIAL",$(UPLOADER))
 		osascript -e 'tell application "Terminal" to do script "$(SERIAL_COMMAND) $$(ls $(BOARD_PORT)) $(SERIAL_BAUDRATE)"'
 
 else ifeq ($(UPLOADER),lightblue_loader)
+		$(call SHOW,"11.7-SERIAL",$(UPLOADER))
 		osascript -e 'tell application "Terminal" to do script "$(SERIAL_COMMAND) $$(ls $(BOARD_PORT)) $(SERIAL_BAUDRATE)"'
 
 else
+		$(call SHOW,"11.8-SERIAL",$(UPLOADER))
 		osascript -e 'tell application "Terminal" to do script "$(SERIAL_COMMAND) $(USED_SERIAL_PORT) $(SERIAL_BAUDRATE)"'  -e 'tell application "Terminal" to activate'
 endif
 
@@ -1664,7 +1687,8 @@ end_fast:
 		@echo "==== Fast done ==== "
 # ~~
 
-.PHONY:	all clean depends upload raw_upload reset serial show_boards headers size document
+# cat Step2.mk | grep -e "^[A-z]\+:" | cut -d: -f1
+.PHONY:	all boards build changed clean compile depends end_all end_build end_fast end_make fast info ispload make message_all message_build message_compile message_fast message_make message_upload prepare raw_upload reset serial serial_option size upload
 
 
 

@@ -8,13 +8,14 @@
 # All rights reserved
 #
 #
-# Last update: Aug 16, 2016 release 5.1.4
+# Last update: Aug 24, 2016 release 5.1.7
 
 #ifneq ($(shell grep 1.5 $(ARDUINO_PATH)/lib/version.txt),)
 #    WARNING_MESSAGE = Arduino 1.0.x is replaced by Arduino 1.6.1 or 1.7.x.
 #endif
 
-INFO_MESSAGE = Built with ArduinoORG SAM 1.7.7 
+include $(MAKEFILE_PATH)/About.mk
+INFO_MESSAGE = Built with ArduinoORG SAM $(ARDUINO_ORG_RELEASE)
 
 # ArduinoORG 1.7.7 SAM specifics
 # ----------------------------------
@@ -59,11 +60,26 @@ VARIANT_OBJS        = $(patsubst $(APPLICATION_PATH)/%,$(OBJDIR)/%,$(VARIANT_OBJ
 # Uploader bossac 
 # Tested by Mike Roberts 
 #
-UPLOADER          = bossac
-UPLOADER_PATH     = $(APPLICATION_PATH)/hardware/tools
-UPLOADER_EXEC     = $(UPLOADER_PATH)/bossac
-UPLOADER_PORT     = $(subst /dev/,,$(AVRDUDE_PORT))
-UPLOADER_OPTS     = -i -d --port=$(UPLOADER_PORT) -U $(call PARSE_BOARD,$(BOARD_TAG),upload.native_usb) -e -w -v -b
+ifeq ($(UPLOADER),jlink)
+    UPLOADER         = jlink
+    UPLOADER_PATH    = $(APPLICATIONS_PATH)/SEGGER/JLink
+    UPLOADER_EXEC    = $(UPLOADER_PATH)/JLinkExe
+    UPLOADER_OPTS    = -device ATSAM3X8E -if swd -speed 4000 -commanderscript Utilities/upload.jlink
+    COMMAND_PREPARE  = printf 'r\nloadfile Builds/embeddedcomputing.hex\ng\nexit\n' > Utilities/upload.jlink
+
+    DEBUG_SERVER_PATH = $(APPLICATIONS_PATH)/SEGGER/JLink
+    DEBUG_SERVER_EXEC = $(DEBUG_SERVER_PATH)/JLinkGDBServer
+    # J-Link port 3333 for compatibility with OpenOCD
+    DEBUG_SERVER_OPTS = -device ATSAM3X8E -if swd -speed 4000 -port 3333
+
+else
+    UPLOADER          = bossac
+    UPLOADER_PATH     = $(APPLICATION_PATH)/hardware/tools
+    UPLOADER_EXEC     = $(UPLOADER_PATH)/bossac
+    UPLOADER_PORT     = $(subst /dev/,,$(AVRDUDE_PORT))
+    UPLOADER_OPTS     = -i -d --port=$(UPLOADER_PORT) -U $(call PARSE_BOARD,$(BOARD_TAG),upload.native_usb) -e -w -v -b
+
+endif
 
 # Sketchbook/Libraries path
 # wildcard required for ~ management
@@ -96,6 +112,9 @@ OBJDUMP = $(APP_TOOLS_PATH)/arm-none-eabi-objdump
 OBJCOPY = $(APP_TOOLS_PATH)/arm-none-eabi-objcopy
 SIZE    = $(APP_TOOLS_PATH)/arm-none-eabi-size
 NM      = $(APP_TOOLS_PATH)/arm-none-eabi-nm
+# ~
+GDB     = $(APP_TOOLS_PATH)/arm-none-eabi-gdb
+# ~~
 
 # Specific AVRDUDE location and options
 #
@@ -149,10 +168,14 @@ USB_FLAGS   += -DUSBCON
 USB_FLAGS   += -DUSB_MANUFACTURER='$(USB_VENDOR)'
 USB_FLAGS   += -DUSB_PRODUCT='$(USB_PRODUCT)'
 
+ifeq ($(UPLOADER),jlink)
+
+else
 # Arduino Due serial 1200 reset
 #
-USB_TOUCH := $(call PARSE_BOARD,$(BOARD_TAG),upload.protocol)
-USB_RESET  = python $(UTILITIES_PATH)/reset_1200.py
+    USB_TOUCH := $(call PARSE_BOARD,$(BOARD_TAG),upload.protocol)
+    USB_RESET  = python $(UTILITIES_PATH)/reset_1200.py
+endif
 
 # ~
 ifeq ($(MAKECMDGOALS),debug)
@@ -226,7 +249,7 @@ COMMAND_LINK    = $(CXX) $(LDFLAGS) $(OUT_PREPOSITION)$@ -L$(OBJDIR) -Wl,--start
 
 # Upload command
 #
-COMMAND_UPLOAD  = $(UPLOADER_EXEC) $(UPLOADER_OPTS) $(TARGET_BIN) -R
+#COMMAND_UPLOAD  = $(UPLOADER_EXEC) $(UPLOADER_OPTS) $(TARGET_BIN) -R
 
 
 # Target

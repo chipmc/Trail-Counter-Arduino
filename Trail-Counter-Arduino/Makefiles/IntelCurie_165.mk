@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Mar 21, 2016 release 4.4.1
+# Last update: Aug 26, 2016 release 5.1.9
 #
 # Tested with Arduino/Genuino 101 CurieBLE Heart Rate Monitor
 # https://www.arduino.cc/en/Tutorial/Genuino101CurieBLEHeartRateMonitor
@@ -217,7 +217,9 @@ LDFLAGS     += -DF_CPU=$(call PARSE_BOARD,$(BOARD_TAG),build.f_cpu) -$(MCU_FLAG_
 LDFLAGS     += -nostartfiles -nodefaultlibs -nostdlib -static -Wl,-X -Wl,-N -Wl,-mARCv2EM -Wl,-marcelf -Wl,--gc-sections
 LDFLAGS     += -T $(VARIANT_PATH)/$(LDSCRIPT)
 LDFLAGS     += -L$(OBJDIR) -L$(VARIANT_PATH)
-LDFLAGS     += -Wl,--whole-archive -larc32drv_arduino101 -Wl,--no-whole-archive
+LDFLAGS     += -Wl,--whole-archive -larc32drv_arduino101 -Wl,--no-whole-archive -lnsim
+
+LDOBJECTS    = -Wl,--start-group -lnsim -lc -lm -lgcc $(LOCAL_OBJS) $(TARGET_A) -Wl,--end-group
 
 # Specific OBJCOPYFLAGS for objcopy only
 # objcopy uses OBJCOPYFLAGS only
@@ -233,7 +235,7 @@ TARGET_HEXBIN = $(TARGET_BIN)
 # ----------------------------------
 # Link command
 #
-COMMAND_LINK    = $(CC) $(LDFLAGS) $(OUT_PREPOSITION)$@ $(LOCAL_OBJS) $(TARGET_A) -lc -lm -lgcc
+COMMAND_LINK    = $(CC) $(LDFLAGS) $(OUT_PREPOSITION)$@ $(LDOBJECTS)
 
 # Copy command
 #

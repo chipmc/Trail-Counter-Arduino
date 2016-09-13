@@ -33,12 +33,6 @@ BUILD_CORE       = avr
 BOARDS_TXT      := $(HARDWARE_PATH)/boards.txt
 BUILD_CORE       = $(call PARSE_BOARD,$(BOARD_TAG),build.core)
 
-#UPLOADER            = teensy_flash
-# New with Teensyduino 1.21
-#TEENSY_FLASH_PATH   = $(APPLICATION_PATH)/hardware/tools/avr/bin
-#TEENSY_POST_COMPILE = $(TEENSY_FLASH_PATH)/teensy_post_compile
-#TEENSY_REBOOT       = $(TEENSY_FLASH_PATH)/teensy_reboot
-
 APP_TOOLS_PATH      := $(TOOL_CHAIN_PATH)/bin
 CORE_LIB_PATH       := $(HARDWARE_PATH)/cores/panstamp
 

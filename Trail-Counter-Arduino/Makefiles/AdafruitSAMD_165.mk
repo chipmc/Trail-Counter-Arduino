@@ -8,9 +8,9 @@
 # All rights reserved
 #
 #
-# Last update: Jul 04, 2016 release 4.5.8
+# Last update: Aug 30, 2016 release 5.2.1
 
-
+ 
 
 include $(MAKEFILE_PATH)/About.mk
 
@@ -33,23 +33,42 @@ BOARDS_TXT      := $(HARDWARE_PATH)/boards.txt
 
 # Uploader
 #
-# Uploader openocd or avrdude
+# Uploader bossac, openocd or jlink
 # UPLOADER defined in .xcconfig
 #
 ifeq ($(UPLOADER),bossac)
-    USB_RESET         = python $(UTILITIES_PATH)/reset_1200.py
-    UPLOADER          = bossac
-    UPLOADER_PATH     = $(OTHER_TOOLS_PATH)/bossac/$(BOSSAC_RELEASE)
-    UPLOADER_EXEC     = $(UPLOADER_PATH)/bossac
-    UPLOADER_PORT     = $(subst /dev/,,$(AVRDUDE_PORT))
-    UPLOADER_OPTS     = -i -d --port=$(UPLOADER_PORT) -U $(call PARSE_BOARD,$(BOARD_TAG),upload.native_usb) -i -e -w -v
+    USB_RESET        = python $(UTILITIES_PATH)/reset_1200.py
+    UPLOADER         = bossac
+    UPLOADER_PATH    = $(OTHER_TOOLS_PATH)/bossac/$(BOSSAC_RELEASE)
+    UPLOADER_EXEC    = $(UPLOADER_PATH)/bossac
+    UPLOADER_PORT    = $(subst /dev/,,$(AVRDUDE_PORT))
+    UPLOADER_OPTS    = -i -d --port=$(UPLOADER_PORT) -U $(call PARSE_BOARD,$(BOARD_TAG),upload.native_usb) -i -e -w -v
+
+else ifeq ($(UPLOADER),jlink)
+    UPLOADER         = jlink
+    UPLOADER_PATH    = $(APPLICATIONS_PATH)/SEGGER/JLink
+    UPLOADER_EXEC    = $(UPLOADER_PATH)/JLinkExe
+	SHARED_OPTS      = -device AT91SAMD21G18 -if swd -speed 4000
+    UPLOADER_OPTS    = $(SHARED_OPTS) -commanderscript Utilities/upload.jlink
+    COMMAND_PREPARE  = printf "r\nloadfile Builds/embeddedcomputing.hex\ng\nexit\n" > Utilities/upload.jlink ;
+    COMMAND_PREPARE += printf "r\npower on\ng\nexit\n" > Utilities/power.jlink ;
+#    JLINK_POWER      = 1
+    ifeq ($(JLINK_POWER),1)
+        COMMAND_POWER    = $(UPLOADER_EXEC) $(SHARED_OPTS)  -commanderscript Utilities/power.jlink
+    endif
+
+    DEBUG_SERVER_PATH = $(APPLICATIONS_PATH)/SEGGER/JLink
+    DEBUG_SERVER_EXEC = $(DEBUG_SERVER_PATH)/JLinkGDBServer
+    DEBUG_SERVER_OPTS = $(SHARED_OPTS)
+
 else
     UPLOADER         = openocd
     UPLOADER_PATH    = $(OTHER_TOOLS_PATH)/openocd/0.9.0-arduino
     UPLOADER_EXEC    = $(UPLOADER_PATH)/bin/openocd
     UPLOADER_OPTS    = -d2 -s $(UPLOADER_PATH)/share/openocd/scripts/
     UPLOADER_OPTS   += -f $(VARIANT_PATH)/$(call PARSE_BOARD,$(BOARD_TAG),build.openocdscript)
-    UPLOADER_COMMAND = telnet_port disabled; program {{$(TARGET_BIN)}} verify reset 0x00002000; shutdown
+    UPLOADER_COMMAND = program {{$(TARGET_BIN)}} verify reset 0x00002000; shutdown
+# telnet_port disabled;
     COMMAND_UPLOAD   = $(UPLOADER_EXEC) $(UPLOADER_OPTS) -c "$(UPLOADER_COMMAND)"
 endif
 
@@ -110,9 +129,9 @@ ada1100   += $(foreach dir,$(BUILD_APP_LIB_PATH),$(patsubst %,$(dir)/%/src/utili
 ada1100   += $(foreach dir,$(BUILD_APP_LIB_PATH),$(patsubst %,$(dir)/%/src/arch/$(BUILD_CORE),$(APP_LIBS_LIST)))
 ada1100   += $(foreach dir,$(BUILD_APP_LIB_PATH),$(patsubst %,$(dir)/%/src/$(BUILD_CORE),$(APP_LIBS_LIST)))
 
-BUILD_APP_LIB_CPP_SRC = $(foreach dir,$(samd165_10),$(wildcard $(dir)/*.cpp)) # */
-BUILD_APP_LIB_C_SRC   = $(foreach dir,$(samd165_10),$(wildcard $(dir)/*.c)) # */
-BUILD_APP_LIB_H_SRC   = $(foreach dir,$(samd165_10),$(wildcard $(dir)/*.h)) # */
+BUILD_APP_LIB_CPP_SRC = $(foreach dir,$(ada1100),$(wildcard $(dir)/*.cpp)) # */
+BUILD_APP_LIB_C_SRC   = $(foreach dir,$(ada1100),$(wildcard $(dir)/*.c)) # */
+BUILD_APP_LIB_H_SRC   = $(foreach dir,$(ada1100),$(wildcard $(dir)/*.h)) # */
 
 BUILD_APP_LIB_OBJS     = $(patsubst $(APPLICATION_PATH)/%.cpp,$(OBJDIR)/%.cpp.o,$(BUILD_APP_LIB_CPP_SRC))
 BUILD_APP_LIB_OBJS    += $(patsubst $(APPLICATION_PATH)/%.c,$(OBJDIR)/%.c.o,$(BUILD_APP_LIB_C_SRC))
@@ -161,7 +180,9 @@ OBJDUMP = $(APP_TOOLS_PATH)/arm-none-eabi-objdump
 OBJCOPY = $(APP_TOOLS_PATH)/arm-none-eabi-objcopy
 SIZE    = $(APP_TOOLS_PATH)/arm-none-eabi-size
 NM      = $(APP_TOOLS_PATH)/arm-none-eabi-nm
-
+# ~
+GDB     = $(APP_TOOLS_PATH)/arm-none-eabi-gdb
+# ~~
 
 MCU_FLAG_NAME    = mcpu
 MCU              = $(call PARSE_BOARD,$(BOARD_TAG),build.mcu)
@@ -237,13 +258,18 @@ OBJCOPYFLAGS  = -v -Obinary
 
 # Target
 #
-TARGET_HEXBIN = $(TARGET_BIN)
+# J-Link requires HEX and no USB reset at 1200  
+ifeq ($(UPLOADER),jlink)
+    TARGET_HEXBIN = $(TARGET_HEX)
+else
+    TARGET_HEXBIN = $(TARGET_BIN)
 
 # Serial 1200 reset
 #
-USB_TOUCH := $(call PARSE_BOARD,$(BOARD_TAG),upload.use_1200bps_touch)
-ifeq ($(USB_TOUCH),true)
-    USB_RESET  = python $(UTILITIES_PATH)/reset_1200.py
+    USB_TOUCH := $(call PARSE_BOARD,$(BOARD_TAG),upload.use_1200bps_touch)
+    ifeq ($(USB_TOUCH),true)
+        USB_RESET  = python $(UTILITIES_PATH)/reset_1200.py
+    endif
 endif
 
 

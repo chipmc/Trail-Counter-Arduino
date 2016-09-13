@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Aug 16, 2016 release 5.1.4
+# Last update: Aug 24, 2016 release 5.1.7
 
 
 
@@ -71,6 +71,19 @@ ifeq ($(UPLOADER),openocd)
     UPLOADER_OPTS   += -f interface/cmsis-dap.cfg -f target/at91sam3ax_8x.cfg
     UPLOADER_COMMAND = program {{$(TARGET_BIN)}} verify srst_only 0x00080000; shutdown
     COMMAND_UPLOAD   = $(UPLOADER_EXEC) $(UPLOADER_OPTS) -c "$(UPLOADER_COMMAND)"
+
+else ifeq ($(UPLOADER),jlink)
+    UPLOADER         = jlink
+    UPLOADER_PATH    = $(APPLICATIONS_PATH)/SEGGER/JLink
+    UPLOADER_EXEC    = $(UPLOADER_PATH)/JLinkExe
+    UPLOADER_OPTS    = -device ATSAM3X8E -if swd -speed 4000 -commanderscript Utilities/upload.jlink
+    COMMAND_PREPARE  = printf 'r\nloadfile Builds/embeddedcomputing.hex\ng\nexit\n' > Utilities/upload.jlink
+
+    DEBUG_SERVER_PATH = $(APPLICATIONS_PATH)/SEGGER/JLink
+    DEBUG_SERVER_EXEC = $(DEBUG_SERVER_PATH)/JLinkGDBServer
+    # J-Link port 3333 for compatibility with OpenOCD
+    DEBUG_SERVER_OPTS = -device ATSAM3X8E -if swd -speed 4000 -port 3333
+
 else
     UPLOADER          = bossac
     UPLOADER_PATH     = $(OTHER_TOOLS_PATH)/bossac/$(BOSSAC_RELEASE)
@@ -188,8 +201,8 @@ F_CPU            = $(call PARSE_BOARD,$(BOARD_TAG),build.f_cpu)
 #
 USB_VID     := $(call PARSE_BOARD,$(BOARD_TAG),build.vid)
 USB_PID     := $(call PARSE_BOARD,$(BOARD_TAG),build.pid)
-USB_PRODUCT := $(call PARSE_BOARD,$(BOARD_TAG),build.usb_product)
 USB_VENDOR  := $(call PARSE_BOARD,$(BOARD_TAG),build.usb_manufacturer)
+USB_PRODUCT := $(call PARSE_BOARD,$(BOARD_TAG),build.usb_product)
 
 USB_FLAGS    = -DUSB_VID=$(USB_VID)
 USB_FLAGS   += -DUSB_PID=$(USB_PID)
@@ -197,16 +210,20 @@ USB_FLAGS   += -DUSBCON
 USB_FLAGS   += -DUSB_MANUFACTURER='$(USB_VENDOR)'
 USB_FLAGS   += -DUSB_PRODUCT='$(USB_PRODUCT)'
 
+ifeq ($(UPLOADER),jlink)
+
+else
 # Arduino Due serial 1200 reset
 #
-USB_TOUCH := $(call PARSE_BOARD,$(BOARD_TAG),upload.protocol)
-USB_RESET  = python $(UTILITIES_PATH)/reset_1200.py
+    USB_TOUCH := $(call PARSE_BOARD,$(BOARD_TAG),upload.protocol)
+    USB_RESET  = python $(UTILITIES_PATH)/reset_1200.py
+endif
 
 # ~
 ifeq ($(MAKECMDGOALS),debug)
     OPTIMISATION   = -O0 -g
 else
-    OPTIMISATION   = -Os
+    OPTIMISATION   = -Os -g3
 endif
 # ~~
 

@@ -20,7 +20,7 @@
 // THE SKETCH IS IN Trail_Counter_Arduino.cpp
 // ----------------------------------
 //
-// Last update: Aug 12, 2016 release 5.1.3
+// Last update: Aug 26, 2016 release 5.1.8
 
 // IDE selection
 #if defined(EMBEDXCODE)
@@ -768,8 +768,8 @@ int main(void)
     system_os_post(LOOP_TASK_PRIORITY, 0, 0);
     }
 
-extern "C" void __yield()
-{
+    extern "C" void __yield()
+    {
     if (cont_can_yield(&g_cont))
     {
         esp_schedule();
@@ -804,8 +804,8 @@ extern "C" void __yield()
     esp_schedule();
     }
 
-static void loop_task(os_event_t *events)
-{
+    static void loop_task(os_event_t *events)
+    {
     g_micros_at_task_start = system_get_time();
     cont_run(&g_cont, &loop_wrapper);
     if (cont_check(&g_cont) != 0)
@@ -853,7 +853,7 @@ static void loop_task(os_event_t *events)
                    LOOP_QUEUE_SIZE);
 
     system_init_done_cb(&init_done);
-}
+    }
 */
 
 /*  RELEASE 2.3.0 only
@@ -907,7 +907,7 @@ extern "C" {
 #ifdef ARDUINO_ESP8266_RELEASE
         ARDUINO_ESP8266_RELEASE;
 #else
-    NULL;
+        NULL;
 #endif
 } // extern "C"
 
@@ -1685,45 +1685,29 @@ int main()
 #include <ti/sysbios/knl/Task.h>
 #include <ti/sysbios/family/arm/m3/Hwi.h>
 #include <xdc/runtime/System.h>
-#include <ti/drivers/Power.h>
+
 /* Board Support Header files (from configuration closure) */
-//#include "Board.h"
 #include <ti/runtime/wiring/Energia.h>
 
-//#if defined(__TI_COMPILER_VERSION__) || defined(__GNUC__)
-//__extern int __UNUSED_start__, __UNUSED_end__;
-//#define START (&__UNUSED_start__)
-//#define END   (&__UNUSED_end__)
-//#else
-//#define START NULL
-//#define END   NULL
-//#endif
-
 /* magic insertion point 769d20fcd7a0eedaf64270f591438b01 */
+//extern void setupsketch_aug24a();
+//extern void loopsketch_aug24a();
+//
+//#define NUM_SKETCHES 1
+//void (*func_ptr[NUM_SKETCHES][2])(void) = {
+//	{setupsketch_aug24a, loopsketch_aug24a}
+//};
+//const char *taskNames[] = {
+//	"loopsketch_aug24a"
+//};
 
-
-/*
-    __extern void setup();
-    __extern void loop();
-
-    #define NUM_SKETCHES 1
-
-    void (*func_ptr[NUM_SKETCHES][2])(void) = {
-	{setup, loop}
-    };
-*/
-
-xdc_Void the_task(xdc_UArg _task_setup, xdc_UArg _task_loop);
+Void the_task(UArg _task_setup, UArg _task_loop);
 
 /*  set priority of simple link callbacks
     must be >= 0 and < Task_numPriorities
     where Task_numPriorities is set by
     TI-RTOS config
 */
-//#define SIMPLELINK_PRI 3
-
-/* Wiring-specific GPIO HW interrupt vectors */
-__extern void Wiring_GPIO_hwiIntFxn(xdc_UArg callbacks);
 
 // ~
 ///
@@ -1767,7 +1751,7 @@ void rtos_Setup()
 /*
     ======== main task ========
 */
-xdc_Void the_task(xdc_UArg _task_setup, xdc_UArg _task_loop)
+Void the_task(UArg _task_setup, UArg _task_loop)
 {
     /* Call setup once */
     (*(void(*)()) _task_setup)();
@@ -1787,7 +1771,6 @@ int main()
 {
     /* initialize all device/board specific peripherals */
     Board_init();  /* this function is generated as part of TI-RTOS config */
-    Power_enablePolicy();
 
     /*  The SimpleLink Host Driver requires a mechanism to allow functions to
         execute in task context.  The SpawnTask is created to handle such
@@ -1797,20 +1780,6 @@ int main()
         blocked state.  Otherwise, it will remain ready until it has
         the highest priority of any ready function.
     */
-    //	VStartSimpleLinkSpawnTask(SIMPLELINK_PRI);
-
-    /*  hijack the common hwi func to point to Wiring's handler that clears
-        the GPIO interrupt
-    */
-
-    //	Hwi_setFunc(Hwi_handle((Hwi_Struct *)Board_gpioCallbacks0.hwiStruct),
-    //		Wiring_GPIO_hwiIntFxn, (UArg)&Board_gpioCallbacks0);
-    //	Hwi_setFunc(Hwi_handle((Hwi_Struct *)Board_gpioCallbacks1.hwiStruct),
-    //		Wiring_GPIO_hwiIntFxn, (UArg)&Board_gpioCallbacks1);
-    //	Hwi_setFunc(Hwi_handle((Hwi_Struct *)Board_gpioCallbacks2.hwiStruct),
-    //		Wiring_GPIO_hwiIntFxn, (UArg)&Board_gpioCallbacks2);
-    //	Hwi_setFunc(Hwi_handle((Hwi_Struct *)Board_gpioCallbacks3.hwiStruct),
-    //		Wiring_GPIO_hwiIntFxn, (UArg)&Board_gpioCallbacks3);
 
     Task_Params taskParams;
 

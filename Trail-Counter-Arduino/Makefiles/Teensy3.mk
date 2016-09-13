@@ -8,14 +8,14 @@
 # All rights reserved
 #
 #
-# Last update: Oct 14, 2015 release 306
+# Last update: Sep 04, 2016 release 5.2.2
 
 
 
 
 
 
-# Teensy 3.0 specifics
+# Teensy 3.x specifics
 # ----------------------------------
 #
 BUILD_CORE       := arm
@@ -87,6 +87,10 @@ MCU             = $(call PARSE_BOARD,$(BOARD_TAG),build.mcu)
 ifndef TEENSY_F_CPU
     ifeq ($(BOARD_TAG),teensyLC)
         TEENSY_F_CPU = 48000000
+    else ifeq ($(BOARD_TAG),teensy36)
+        TEENSY_F_CPU = 180000000
+    else ifeq ($(BOARD_TAG),teensy35)
+        TEENSY_F_CPU = 120000000
     else
         TEENSY_F_CPU = 96000000
     endif

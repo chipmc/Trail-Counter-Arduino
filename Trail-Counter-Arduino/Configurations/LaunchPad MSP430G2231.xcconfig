@@ -11,11 +11,12 @@
 //  Copyright   (c) 2010-2016 http://embedxcode.weebly.com
 //  Licence     All rights reserved
 //
-// Last update: Feb 06, 2014 release 131
+// Last update: Aug 26, 2016 release 5.1.8
 
 // Board identifier
 // See Boards.txt for <tag>.name=Arduino Uno (16 MHz)
 //
+BOARD_TAG_18 = MSP-EXP430G2231LP
 BOARD_TAG  = lpmsp430g2231
 
 // Port (optionnal)

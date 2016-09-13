@@ -135,7 +135,7 @@ void ResetFRAM()  // This will reset the FRAM - set the version and preserve del
 {
     // Note - have to hard code the size here due to this issue - http://www.microchip.com/forums/m501193.aspx
     Serial.println("Resetting Memory");
-    for (unsigned long i=3; i < 32768; i++) {  // Start at 3 to not overwrite debounce and sensitivity
+    for (unsigned long i=4; i < 32768; i++) {  // Start at 4 to not overwrite debounce and sensitivity
         FRAMwrite8(i,0x0);
         if (i==8192) Serial.println(F("25% done"));
         if (i==16384) Serial.println(F("50% done"));

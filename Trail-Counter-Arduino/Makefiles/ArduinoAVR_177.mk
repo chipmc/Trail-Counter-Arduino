@@ -12,7 +12,8 @@
 
 
 
-
+include $(MAKEFILE_PATH)/About.mk
+INFO_MESSAGE = Built with ArduinoORG AVR $(ARDUINO_ORG_RELEASE)
 
 # Adafruit 1.6.1 AVR specifics
 # Arduino 1.6.1 AVR specifics
