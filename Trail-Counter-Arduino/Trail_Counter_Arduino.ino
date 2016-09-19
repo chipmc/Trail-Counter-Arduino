@@ -220,13 +220,15 @@ boolean inTest = false;            // Are we in a test or not
 boolean LEDSon = false;             // Are the LEDs on or off
 int numberHourlyDataPoints;   // How many hourly counts are there
 int numberDailyDataPoints;   // How many daily counts are there
+const char* releaseNumber = "1.23";
 
 // Add setup code
 void setup()
 {
     Wire.begin();
     Serial.begin(9600);                   // Note: Required baud for Bluetooth UART Friend
-    Serial.println(F("Trail-Counter-Arduino"));
+    Serial.print(F("Trail-Counter-Arduino - release "));
+    Serial.println(releaseNumber);
     pinMode(REDLED, OUTPUT);              // declare the Red LED Pin as an output
     pinMode(YELLOWLED, OUTPUT);           // declare the Yellow LED Pin as as OUTPUT
     pinMode(LEDPWR, OUTPUT);            // declare the Bluetooth Dongle Power pin as as OUTPUT
@@ -293,7 +295,7 @@ void setup()
     debounce = FRAMread16(DEBOUNCEADDR);
     Serial.println(debounce);
     
-    FRAMwrite8(CONTROLREGISTER, B00000000);       // Reset the control register
+    FRAMwrite8(CONTROLREGISTER, toggleStartStop);       // Reset the control register and start the test
     
     TakeTheBus();  // Need to initialize the accelerometer
         // Read the WHO_AM_I register of the Accelerometer, this is a good test of communication
