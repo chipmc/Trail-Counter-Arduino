@@ -72,6 +72,7 @@ ifeq ($(UPLOADER),openocd)
     UPLOADER_COMMAND = program {{$(TARGET_BIN)}} verify srst_only 0x00080000; shutdown
     COMMAND_UPLOAD   = $(UPLOADER_EXEC) $(UPLOADER_OPTS) -c "$(UPLOADER_COMMAND)"
 
+# ~
 else ifeq ($(UPLOADER),jlink)
     UPLOADER         = jlink
     UPLOADER_PATH    = $(APPLICATIONS_PATH)/SEGGER/JLink
@@ -83,6 +84,7 @@ else ifeq ($(UPLOADER),jlink)
     DEBUG_SERVER_EXEC = $(DEBUG_SERVER_PATH)/JLinkGDBServer
     # J-Link port 3333 for compatibility with OpenOCD
     DEBUG_SERVER_OPTS = -device ATSAM3X8E -if swd -speed 4000 -port 3333
+# ~~
 
 else
     UPLOADER          = bossac
@@ -210,14 +212,18 @@ USB_FLAGS   += -DUSBCON
 USB_FLAGS   += -DUSB_MANUFACTURER='$(USB_VENDOR)'
 USB_FLAGS   += -DUSB_PRODUCT='$(USB_PRODUCT)'
 
+# ~
 ifeq ($(UPLOADER),jlink)
 
 else
+# ~~
 # Arduino Due serial 1200 reset
 #
     USB_TOUCH := $(call PARSE_BOARD,$(BOARD_TAG),upload.protocol)
     USB_RESET  = python $(UTILITIES_PATH)/reset_1200.py
+# ~
 endif
+# ~~
 
 # ~
 ifeq ($(MAKECMDGOALS),debug)

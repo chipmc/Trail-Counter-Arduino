@@ -60,6 +60,7 @@ VARIANT_OBJS        = $(patsubst $(APPLICATION_PATH)/%,$(OBJDIR)/%,$(VARIANT_OBJ
 # Uploader bossac 
 # Tested by Mike Roberts 
 #
+# ~
 ifeq ($(UPLOADER),jlink)
     UPLOADER         = jlink
     UPLOADER_PATH    = $(APPLICATIONS_PATH)/SEGGER/JLink
@@ -73,13 +74,16 @@ ifeq ($(UPLOADER),jlink)
     DEBUG_SERVER_OPTS = -device ATSAM3X8E -if swd -speed 4000 -port 3333
 
 else
+# ~~
     UPLOADER          = bossac
     UPLOADER_PATH     = $(APPLICATION_PATH)/hardware/tools
     UPLOADER_EXEC     = $(UPLOADER_PATH)/bossac
     UPLOADER_PORT     = $(subst /dev/,,$(AVRDUDE_PORT))
     UPLOADER_OPTS     = -i -d --port=$(UPLOADER_PORT) -U $(call PARSE_BOARD,$(BOARD_TAG),upload.native_usb) -e -w -v -b
 
+# ~
 endif
+# ~~
 
 # Sketchbook/Libraries path
 # wildcard required for ~ management
@@ -168,14 +172,18 @@ USB_FLAGS   += -DUSBCON
 USB_FLAGS   += -DUSB_MANUFACTURER='$(USB_VENDOR)'
 USB_FLAGS   += -DUSB_PRODUCT='$(USB_PRODUCT)'
 
+# ~
 ifeq ($(UPLOADER),jlink)
 
 else
+# ~~
 # Arduino Due serial 1200 reset
 #
     USB_TOUCH := $(call PARSE_BOARD,$(BOARD_TAG),upload.protocol)
     USB_RESET  = python $(UTILITIES_PATH)/reset_1200.py
+# ~
 endif
+# ~~
 
 # ~
 ifeq ($(MAKECMDGOALS),debug)

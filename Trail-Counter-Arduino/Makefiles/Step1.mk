@@ -479,6 +479,15 @@ endif
 #    ENERGIA_18_CC3200_EMT_BOARDS = $(ENERGIA_CC3200_EMT_1)/boards.txt
 #endif
 
+# ~
+ENERGIA_CC1310_EMT_1    = $(ENERGIA_PACKAGES_PATH)/hardware/cc13xx/$(ENERGIA_CC1310_EMT_RELEASE)
+ifneq ($(wildcard $(ENERGIA_CC1310_EMT_1)),)
+    ENERGIA_CC1310_EMT_APP    = $(ENERGIA_CC1310_EMT_1)
+    ENERGIA_CC1310_EMT_PATH   = $(ENERGIA_CC1310_EMT_APP)
+    ENERGIA_18_CC1310_EMT_BOARDS = $(ENERGIA_CC1310_EMT_1)/boards.txt
+endif
+# ~~
+
 #ENERGIA_18_CC2600_EMT_BOARDS   = $(ENERGIA_18_PATH)/hardware/cc2600emt/boards.txt
 ENERGIA_MSP432_EMT_1    = $(ENERGIA_PACKAGES_PATH)/hardware/msp432/$(ENERGIA_MSP432_EMT_RELEASE)
 ifneq ($(wildcard $(ENERGIA_MSP432_EMT_1)),)
@@ -798,6 +807,8 @@ ifneq ($(MAKECMDGOALS),boards)
             include $(MAKEFILE_PATH)/EnergiaTIVAC_18.mk
         else ifneq ($(call PARSE_FILE,$(BOARD_TAG_18),name,$(ENERGIA_18_CC3200_BOARDS)),)
             include $(MAKEFILE_PATH)/EnergiaCC3200_18.mk
+        else ifneq ($(call PARSE_FILE,$(BOARD_TAG_18),name,$(ENERGIA_18_CC1310_EMT_BOARDS)),)
+            include $(MAKEFILE_PATH)/EnergiaCC1300EMT_18.mk
         else ifneq ($(call PARSE_FILE,$(BOARD_TAG_18),name,$(ENERGIA_18_MSP432_EMT_BOARDS)),)
             include $(MAKEFILE_PATH)/EnergiaMSP432EMT_18.mk
 

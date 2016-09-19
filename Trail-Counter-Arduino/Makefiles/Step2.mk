@@ -863,6 +863,8 @@ else ifeq ($(PLATFORM),Energia)
         USED_SERIAL_PORT = $(shell cat $(UTILITIES_PATH)/serial.txt | head -1)
     else ifeq ($(BUILD_CORE),cc2600emt)
         USED_SERIAL_PORT = $(shell cat $(UTILITIES_PATH)/serial.txt | head -1)
+    else ifeq ($(BUILD_CORE),cc1310emt)
+        USED_SERIAL_PORT = $(shell cat $(UTILITIES_PATH)/serial.txt | head -1)
     else
         USED_SERIAL_PORT = $(shell cat $(UTILITIES_PATH)/serial.txt | tail -1)
     endif
