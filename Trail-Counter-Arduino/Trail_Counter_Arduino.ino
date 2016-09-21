@@ -81,7 +81,7 @@
 #define MMA8452_ADDRESS 0x1C
 #endif
 // There are some new pin assignments when using the new v9 board
-#define V9BOARD 0
+#define V9BOARD 1
 #if V9BOARD                    // These are the pin assignments for the v9 board
 #define ALARMPIN 3         // This one will be used for the RTC Alarm in v9
 #define INT2PIN 2         // This is the interrupt pin that registers taps
@@ -227,7 +227,7 @@ void setup()
 {
     Wire.begin();
     Serial.begin(9600);                   // Initialize communications with the terminal
-    Serial.println("Startup delay...");
+    Serial.println(F("Startup delay..."));
     delay(500); // This is to make sure that the Arduino boots first as it initializes the various devices
     Serial.print(F("Trail-Counter-Arduino - release "));
     Serial.println(releaseNumber);
@@ -328,7 +328,7 @@ void loop()
                 GiveUpTheBus();
                 Serial.print(F("State of charge: "));
                 Serial.print(stateOfCharge);
-                Serial.println("%");
+                Serial.println(F("%"));
                 Serial.print(F("Sensitivity set to: "));
                 Serial.println(FRAMread8(SENSITIVITYADDR));
                 Serial.print(F("Debounce set to: "));
@@ -436,7 +436,7 @@ void loop()
     if (inTest == 1) {
         CheckForBump();
         if (millis() >= lastBump + delaySleep) {
-            Serial.println(F("Serial: Entering Sleep mode"));
+            Serial.println(F("Entering Sleep mode"));
             delay(100);     // this delay is needed, the sleep function will provoke a Serial error otherwise!!
             sleepNow();     // sleep function called here
         }
@@ -448,12 +448,10 @@ void loop()
         if ((controlRegisterValue & toggleStartStop) >> 2 && !inTest)
         {
             StartStopTest(1);  // If the control says start but we are stopped
-            Serial.println(F("Starting the test"));
         }
         else if (!((controlRegisterValue & toggleStartStop) >> 2) && inTest)
         {
             StartStopTest(0); // If the control bit says stop but we have started
-            Serial.println(F("Stopping the test"));
         }
         else if (controlRegisterValue & signalDebounceChange)   // If we changed the debounce value on the Simblee side
         {
@@ -462,8 +460,6 @@ void loop()
             Serial.println(debounce);
             controlRegisterValue &= clearDebounceChange;
             FRAMwrite8(CONTROLREGISTER, controlRegisterValue);
-            Serial.print(F("Debounce Updated Control Register Value ="));
-            Serial.println(controlRegisterValue);
         }
         else if (controlRegisterValue & signalSentitivityChange)   // If we changed the debounce value on the Simblee side
         {
@@ -471,13 +467,11 @@ void loop()
             TakeTheBus();
                 initMMA8452(accelFullScaleRange, dataRate);  // init the accelerometer if communication is OK
             GiveUpTheBus();
-            Serial.println(F("MMA8452Q is online..."));
+            Serial.print(F("MMA8452Q is online..."));
             Serial.print(F("Updated sensitivity value to:"));
             Serial.println(accelSensitivity);
             controlRegisterValue &= clearSensitivityChange;
             FRAMwrite8(CONTROLREGISTER, controlRegisterValue);
-            Serial.print(F("Sensitivty Updated Control Register Value ="));
-            Serial.println(controlRegisterValue);
         }
         else if (controlRegisterValue & signalClearCounts)
         {
@@ -491,7 +485,7 @@ void loop()
             FRAMwrite16(CURRENTHOURLYCOUNTADDR, hourlyPersonCount);  // Load Hourly Count to memory
             FRAMwrite16(CURRENTDAILYCOUNTADDR, dailyPersonCount);   // Load Daily Count to memory
             FRAMwrite32(CURRENTCOUNTSTIME, t);   // Write to FRAM - this is so we know when the last counts were saved
-            Serial.println(F("Current Counts Cleared as Ordered"));
+            Serial.println(F("Current Counts Cleared"));
         }
         else if (((controlRegisterValue & toggleLEDs) >> 3) && !LEDSon)
         {
@@ -519,17 +513,9 @@ void CheckForBump() // This is where we check to see if an interrupt is set when
                     t = RTC.get();
                 GiveUpTheBus();
                 if (HOURLYPERIOD != currentHourlyPeriod) {
-                    Serial.print(F(" Hour: "));
-                    Serial.print(currentHourlyPeriod);
-                    Serial.print(F(" - count: "));
-                    Serial.println(hourlyPersonCount);
                     LogHourlyEvent(t);
                 }
                 if (DAILYPERIOD != currentDailyPeriod) {
-                    Serial.print(F("Day: "));
-                    Serial.print(currentDailyPeriod);
-                    Serial.print(F(" - count: "));
-                    Serial.println(dailyPersonCount);
                     LogDailyEvent(t);
                 }
                 hourlyPersonCount++;                    // Increment the PersonCount
@@ -558,8 +544,6 @@ void StartStopTest(boolean startTest)  // Since the test can be started from the
     tmElements_t tm;
     if (startTest) {
         inTest = true;
-        Serial.print(F("Starting Test - CONTROLREGISTER = "));
-        Serial.println(FRAMread8(CONTROLREGISTER));
         TakeTheBus();
             t = RTC.get();                    // Gets the current time
         GiveUpTheBus();
@@ -570,11 +554,6 @@ void StartStopTest(boolean startTest)  // Since the test can be started from the
         breakTime(unixTime, tm);
         lastHour = tm.Hour;
         lastDate = tm.Day;
-        Serial.println("Restoring Counts");
-        Serial.print("CURRENTDAILYCOUNTADDR - ");
-        Serial.println(CURRENTDAILYCOUNTADDR);
-        Serial.print("CURRENTHOURLYCOUNTADDR");
-        Serial.println(CURRENTHOURLYCOUNTADDR);
         dailyPersonCount = FRAMread16(CURRENTDAILYCOUNTADDR);  // Load Daily Count from memory
         hourlyPersonCount = FRAMread16(CURRENTHOURLYCOUNTADDR);  // Load Hourly Count from memory
         if (currentDailyPeriod != lastDate) {
@@ -592,8 +571,6 @@ void StartStopTest(boolean startTest)  // Since the test can be started from the
     }
     else {
         inTest = false;
-        Serial.print(F("Stopping Test since CONTROLREGISTER is:"));
-        Serial.println(FRAMread8(CONTROLREGISTER));
         TakeTheBus();
             source = readRegister(0x22);  // Reads the PULSE_SRC register to reset it
             detachInterrupt(digitalPinToInterrupt(INT2PIN));           // disables interrupt so the program can execute
@@ -610,11 +587,13 @@ void StartStopTest(boolean startTest)  // Since the test can be started from the
 
 void LogHourlyEvent(time_t LogTime) // Log Hourly Event()
 {
-    Serial.print("Logging an Hourly Event - ");
-    unsigned int pointer = (HOURLYOFFSET + FRAMread16(HOURLYPOINTERADDR))*WORDSIZE;  // get the pointer from memory and add the offset
     tmElements_t timeElement;
     breakTime(LogTime, timeElement);
-    LogTime = LogTime - 3600 -60*timeElement.Minute - timeElement.Second;       // So we need to back out the last hour to log the right one
+    int newHour = timeElement.Hour;
+    unsigned int pointer = (HOURLYOFFSET + FRAMread16(HOURLYPOINTERADDR))*WORDSIZE;  // get the pointer from memory and add the offset
+    if (newHour < currentHourlyPeriod) newHour += 24;
+    Serial.println(newHour - currentHourlyPeriod);
+    LogTime -= (3600*(newHour - currentHourlyPeriod)-60*timeElement.Minute - timeElement.Second); // So we need to back out the last hour(s)
     FRAMwrite32(pointer, LogTime);   // Write to FRAM - this is the end of the period
     FRAMwrite16(pointer+HOURLYCOUNTOFFSET,hourlyPersonCount);
     TakeTheBus();
@@ -625,12 +604,12 @@ void LogHourlyEvent(time_t LogTime) // Log Hourly Event()
     FRAMwrite16(HOURLYPOINTERADDR,newHourlyPointerAddr);
     hourlyPersonCount = 0;                    // Reset and increment the Person Count in the new period
     currentHourlyPeriod = HOURLYPERIOD;  // Change the time period
+    Serial.println(F("Hourly Event Logged"));
 }
 
 
 void LogDailyEvent(time_t LogTime) // Log Daily Event()
 {
-    Serial.print("Logging a Daily Event - ");
     int pointer = (DAILYOFFSET + FRAMread8(DAILYPOINTERADDR))*WORDSIZE;  // get the pointer from memory and add the offset
     tmElements_t timeElement;
     breakTime(LogTime, timeElement);
@@ -646,6 +625,7 @@ void LogDailyEvent(time_t LogTime) // Log Daily Event()
     FRAMwrite8(DAILYPOINTERADDR,newDailyPointerAddr);
     dailyPersonCount = 0;    // Reset and increment the Person Count in the new period
     currentDailyPeriod = DAILYPERIOD;  // Change the time period
+    Serial.println(F("Logged a Daily Event"));
 }
 
 
@@ -706,10 +686,10 @@ void PrintTimeDate()  // Prints time and date to the console
     Serial.print(F(" "));
     Serial.print(hour(t), DEC);
     Serial.print(':');
-    if (minute(t) < 10) Serial.print("0");
+    if (minute(t) < 10) Serial.print(F("0"));
     Serial.print(minute(t), DEC);
     Serial.print(':');
-    if (second(t) < 10) Serial.print("0");
+    if (second(t) < 10) Serial.print(F("0"));
     Serial.print(second(t), DEC);
     Serial.println();
 }
