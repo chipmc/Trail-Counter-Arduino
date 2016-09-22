@@ -167,7 +167,7 @@ int freeRam ();  // Debugging code, to check usage of RAM
 
 // Prototypes for Date and Time Functions
 void SetTimeDate(); // Sets the RTC date and time
-void PrintTimeDate(); // Prints to the console
+void PrintTimeDate(time_t t); // Prints to the console
 void toArduinoTime(time_t unixT); //Converts to Arduino Time for use with the RTC and program
 
 
@@ -322,7 +322,10 @@ void loop()
                 break;
             case '1':   // Display Current Status Information
                 Serial.print(F("Current Time:"));
-                PrintTimeDate();  // Give and take the bus are in this function as it gets the current time
+                TakeTheBus();
+                    t = RTC.get();
+                GiveUpTheBus();
+                PrintTimeDate(t);  // Give and take the bus are in this function as it gets the current time
                 TakeTheBus();
                     stateOfCharge = batteryMonitor.getSoC();
                 GiveUpTheBus();
@@ -342,7 +345,7 @@ void loop()
                 break;
             case '2':     // Set the clock
                 SetTimeDate();
-                PrintTimeDate();
+                PrintTimeDate(t);
                 Serial.println(F("Date and Time Set"));
                 break;
             case '3':  // Change the sensitivity
@@ -372,10 +375,10 @@ void loop()
                 break;
             case '5':  // Reset the current counters
                 Serial.println(F("Counter Reset!"));
-                FRAMwrite16(CURRENTDAILYCOUNTADDR, 0);   // Reset Daily Count in memory
+                FRAMwrite16(CURRENTDAILYCOUNTADDR, 21);   // Reset Daily Count in memory
                 FRAMwrite16(CURRENTHOURLYCOUNTADDR, 0);  // Reset Hourly Count in memory
                 hourlyPersonCount = 0;
-                dailyPersonCount = 0;
+                dailyPersonCount = 21;
                 break;
             case '6': // Reset FRAM Memory
                 ResetFRAM();
@@ -529,11 +532,13 @@ void CheckForBump() // This is where we check to see if an interrupt is set when
                 Serial.print(F(" Daily: "));
                 Serial.print(dailyPersonCount);
                 Serial.print(F("  Time: "));
-                PrintTimeDate();
+                PrintTimeDate(t);
                 ledState = !ledState;              // toggle the status of the LEDPIN:
                 digitalWrite(REDLED, ledState);    // update the LED pin itself
             }
-            readRegister(0x22);  // Reads the PULSE_SRC register to reset it
+            TakeTheBus();
+                readRegister(0x22);  // Reads the PULSE_SRC register to reset it
+            GiveUpTheBus();
         }
     }
 }
@@ -592,8 +597,7 @@ void LogHourlyEvent(time_t LogTime) // Log Hourly Event()
     int newHour = timeElement.Hour;
     unsigned int pointer = (HOURLYOFFSET + FRAMread16(HOURLYPOINTERADDR))*WORDSIZE;  // get the pointer from memory and add the offset
     if (newHour < currentHourlyPeriod) newHour += 24;
-    Serial.println(newHour - currentHourlyPeriod);
-    LogTime -= (3600*(newHour - currentHourlyPeriod)-60*timeElement.Minute - timeElement.Second); // So we need to back out the last hour(s)
+    LogTime -= (3600L*(newHour - currentHourlyPeriod)-60*timeElement.Minute - timeElement.Second); // So we need to back out the last hour(s)
     FRAMwrite32(pointer, LogTime);   // Write to FRAM - this is the end of the period
     FRAMwrite16(pointer+HOURLYCOUNTOFFSET,hourlyPersonCount);
     TakeTheBus();
@@ -613,7 +617,7 @@ void LogDailyEvent(time_t LogTime) // Log Daily Event()
     int pointer = (DAILYOFFSET + FRAMread8(DAILYPOINTERADDR))*WORDSIZE;  // get the pointer from memory and add the offset
     tmElements_t timeElement;
     breakTime(LogTime, timeElement);
-    LogTime = LogTime - 86400L- 3600*timeElement.Hour -60*timeElement.Minute - timeElement.Second;  // Logging for the previous day
+    LogTime -= 86400L- 3600*timeElement.Hour -60*timeElement.Minute - timeElement.Second;  // Logging for the previous day
     FRAMwrite8(pointer,month(LogTime)); // should be time.month
     FRAMwrite8(pointer+DAILYDATEOFFSET,day(LogTime));  // Write to FRAM - this is the end of the period  - should be time.date
     FRAMwrite16(pointer+DAILYCOUNTOFFSET,dailyPersonCount);
@@ -673,11 +677,8 @@ void SetTimeDate()  // Function to set the date and time from the terminal windo
     
 }
 
-void PrintTimeDate()  // Prints time and date to the console
+void PrintTimeDate(time_t t)  // Prints time and date to the console
 {
-    TakeTheBus();
-        t = RTC.get();
-    GiveUpTheBus();
     Serial.print(year(t), DEC);
     Serial.print('/');
     Serial.print(month(t), DEC);
@@ -808,7 +809,9 @@ void WakeUpNow()        // Sensor Interrupt Handler
     // we don't really need to execute any special functions here, since we
     // just want the thing to wake up
     // If int2 goes high, either p/l has changed or there's been a single/double tap
-    source = readRegister(0x0C);  // Read the interrupt source reg.
+    TakeTheBus();
+        source = readRegister(0x0C);  // Read the interrupt source reg.
+    GiveUpTheBus();
 }
 
 void sleepNow()         // here we put the arduino to sleep
