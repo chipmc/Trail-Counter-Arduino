@@ -86,6 +86,8 @@
 #define ALARMPIN 3         // This one will be used for the RTC Alarm in v9
 #define INT2PIN 2         // This is the interrupt pin that registers taps
 #define I2CPIN 5            // This is a pin which connects to the i2c header - future use
+#define I2CPWR 8            // Turns the i2c port on and off
+#define RESETPIN 16         // This a modification using a bodge wire
 #else                      // These are the pin assignments for the v8b board
 #define INT1PIN 2         // Not used now but wired for future use
 #define INT2PIN 3         // This is the interrupt pin that registers taps
@@ -155,6 +157,7 @@ void initMMA8452(byte fsr, byte dataRate);  // Initialize the MMA8452
 // Prototypes for General Functions
 void StartStopTest(boolean startTest); // Since the test can be started from the serial menu or the Simblee - created a function
 void BlinkForever(); // Ends execution
+void enable32Khz(uint8_t enable);  // Need to turn on the 32k square wave for bus moderation
 void LogHourlyEvent(time_t LogTime); // Log Hourly Event()
 void LogDailyEvent(time_t LogTime); // Log Daily Event()
 void CheckForBump(); // Check for bump
@@ -183,13 +186,13 @@ byte currentDailyPeriod;     // We will keep daily counts as well as period coun
 int countTemp = 0;          // Will use this to see if we should display a day or hours counts
 
 // Variables for the control byte
-// Control Register  (8 - 6 Reserved, 5-Clear Counts, 4-Toggle LEDs, 3-Start / Stop Test, 2-Set Sensitivity, 1-Set Delay)
+// Control Register  (8 - 6 Reserved, 5-Clear Counts, 4-Simblee Health, 3-Start / Stop Test, 2-Set Sensitivity, 1-Set Delay)
 byte signalDebounceChange = B00000001;
 byte clearDebounceChange = B11111110;
 byte signalSentitivityChange = B00000010;
 byte clearSensitivityChange = B11111101;
 byte toggleStartStop = B00000100;
-byte toggleLEDs = B00001000;
+byte toggleSimbleeHealth = B00001000;
 byte signalClearCounts = B00010000;
 byte clearClearCounts = B11101111;
 byte controlRegisterValue;
@@ -217,25 +220,31 @@ int delaySleep = 3000;         // Wait until going back to sleep so we can enter
 int menuChoice=0;              // Menu Selection
 boolean refreshMenu = true;       //  Tells whether to write the menu
 boolean inTest = false;            // Are we in a test or not
-boolean LEDSon = false;             // Are the LEDs on or off
+boolean LEDSon = true;             // Are the LEDs on or off
+unsigned int LEDSonTime = 30000;   // By default, turn the LEDS on for 30 seconds - remember only awake time counts not real seconds
 int numberHourlyDataPoints;   // How many hourly counts are there
 int numberDailyDataPoints;   // How many daily counts are there
-const char* releaseNumber = "1.24";
+const char* releaseNumber = "1.30";
+
 
 // Add setup code
 void setup()
 {
     Wire.begin();
     Serial.begin(9600);                   // Initialize communications with the terminal
-    Serial.println(F("Startup delay..."));
-    delay(500); // This is to make sure that the Arduino boots first as it initializes the various devices
     Serial.print(F("Trail-Counter-Arduino - release "));
     Serial.println(releaseNumber);
     pinMode(REDLED, OUTPUT);              // declare the Red LED Pin as an output
     pinMode(YELLOWLED, OUTPUT);           // declare the Yellow LED Pin as as OUTPUT
     pinMode(LEDPWR, OUTPUT);            // declare the Bluetooth Dongle Power pin as as OUTPUT
-    digitalWrite(LEDPWR, HIGH);          // Turn off the power to the LEDs
+    digitalWrite(LEDPWR, LOW);          // Turn on the power to the LEDs at startup for as long as is set in LEDsonTime
     pinMode(INT2PIN, INPUT);            // Set up the interrupt pins, they're set as active low with an external pull-up
+    pinMode(I2CPWR, OUTPUT);
+    digitalWrite(I2CPWR, HIGH);         // Turns on the i2c port
+    pinMode(RESETPIN,INPUT);            // Just to make sure - if set to output, you cant program the SIMBLEE
+
+    
+    enable32Khz(1); // turns on the 32k squarewave - to moderate access to the i2c bus
     
     TakeTheBus(); // Need th i2c bus for initializations
         if (fram.begin()) {  // you can stick the new i2c addr in here, e.g. begin(0x51);
@@ -265,6 +274,28 @@ void setup()
                 BlinkForever();
         }
     }
+    
+    TakeTheBus();
+        batteryMonitor.reset();               // Initialize the battery monitor
+        batteryMonitor.quickStart();
+        setSyncProvider(RTC.get);              // Set up the clock as we will control it and the alarms here
+        Serial.println(F("RTC Sync"));
+        if (timeStatus() != timeSet) {
+            Serial.println(F(" time sync fail!"));
+            BlinkForever();
+        }
+        // We need to set an Alarm or Two in order to ensure that the Simblee is put to sleep at night
+        RTC.squareWave(SQWAVE_NONE);            //Disable the default square wave of the SQW pin.
+        RTC.alarm(ALARM_1);                     // This will clear the Alarm flags
+        RTC.alarm(ALARM_2);                     // This will clear the Alarm flags
+        RTC.setAlarm(ALM1_MATCH_HOURS,00,00,20,0); // Set the evening Alarm
+        RTC.setAlarm(ALM2_MATCH_HOURS,00,00,7,0); // Set the morning Alarm
+        //RTC.setAlarm(ALM1_MATCH_MINUTES,00,42,00,0); // Start Alarm - for debugging
+        //RTC.setAlarm(ALM2_MATCH_MINUTES,00,43,00,0); // Wake Alarm - for debugging
+        RTC.alarmInterrupt(ALARM_2, true);      // Connect the Interrupt to the Alarms (or not)
+        RTC.alarmInterrupt(ALARM_1, true);
+    GiveUpTheBus();
+
     
     // Import the accelSensitivity and Debounce values from memory
     Serial.print(F("Sensitivity set to: "));
@@ -375,10 +406,16 @@ void loop()
                 break;
             case '5':  // Reset the current counters
                 Serial.println(F("Counter Reset!"));
-                FRAMwrite16(CURRENTDAILYCOUNTADDR, 21);   // Reset Daily Count in memory
+                FRAMwrite16(CURRENTDAILYCOUNTADDR, 0);   // Reset Daily Count in memory
                 FRAMwrite16(CURRENTHOURLYCOUNTADDR, 0);  // Reset Hourly Count in memory
                 hourlyPersonCount = 0;
-                dailyPersonCount = 21;
+                dailyPersonCount = 0;
+                Serial.println(F("Resetting Counters and Simblee"));
+                pinMode(RESETPIN, OUTPUT);
+                digitalWrite(RESETPIN, LOW);
+                NonBlockingDelay(100);
+                digitalWrite(RESETPIN, HIGH);
+                pinMode(RESETPIN, INPUT);
                 break;
             case '6': // Reset FRAM Memory
                 ResetFRAM();
@@ -490,18 +527,23 @@ void loop()
             FRAMwrite32(CURRENTCOUNTSTIME, t);   // Write to FRAM - this is so we know when the last counts were saved
             Serial.println(F("Current Counts Cleared"));
         }
-        else if (((controlRegisterValue & toggleLEDs) >> 3) && !LEDSon)
+        else if (controlRegisterValue & toggleSimbleeHealth)
         {
-            digitalWrite(LEDPWR,LOW);
-            LEDSon = true; // This keeps us from entering this conditional until there is a change
-            Serial.println(F("Turn on the LEDs"));
+            Serial.println(F("Resetting Simblee"));
+            pinMode(RESETPIN, OUTPUT);
+            digitalWrite(RESETPIN, LOW);
+            NonBlockingDelay(100);
+            digitalWrite(RESETPIN, HIGH);
+            pinMode(RESETPIN, INPUT);
         }
-        else if (!((controlRegisterValue & toggleLEDs) >> 3) && LEDSon)
+        else if (LEDSon && millis() >= LEDSonTime)
         {
             digitalWrite(LEDPWR,HIGH);
             LEDSon = false; // This keeps us from entering this conditional until there is a change
             Serial.println(F("Turn off the LEDs"));
         }
+        controlRegisterValue = FRAMread8(CONTROLREGISTER);
+        FRAMwrite8(CONTROLREGISTER, controlRegisterValue | toggleSimbleeHealth);    // Sets the health flag - Simblee has 1 sec to clear it - or else
     }
 }
 
@@ -904,7 +946,26 @@ void BlinkForever() // When something goes badly wrong...
     }
 }
 
-
+void enable32Khz(uint8_t enable)  // Need to turn on the 32k square wave for bus moderation
+{
+    Wire.beginTransmission(0x68);
+    Wire.write(0x0F);
+    Wire.endTransmission();
+    
+    // status register
+    Wire.requestFrom(0x68, 1);
+    
+    uint8_t sreg = Wire.read();
+    
+    sreg &= ~0b00001000; // Set to 0
+    if (enable == true)
+        sreg |=  0b00001000; // Enable if required.
+    
+    Wire.beginTransmission(0x68);
+    Wire.write(0x0F);
+    Wire.write(sreg);
+    Wire.endTransmission();
+}
 
 int freeRam ()  // Debugging code, to check usage of RAM
 {
