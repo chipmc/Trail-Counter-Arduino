@@ -123,11 +123,14 @@
 #define DAILYBATTOFFSET 4
 #define HOURLYCOUNTOFFSET 4         // Offsets for the values in the hourly words
 #define HOURLYBATTOFFSET 6
-
 // LED Pin Value Variables
 #define REDLED 4          // led connected to digital pin 4
 #define YELLOWLED 6       // The yellow LED
 #define LEDPWR 7          // This pin turns on and off the LEDs
+// Finally, here are the variables I want to change often and pull them all together here
+#define SOFTWARERELEASENUMBER "1.3.1"
+#define PARKCLOSES 20
+#define PARKOPENS 7
 
 
 // Include application, user and local libraries
@@ -186,15 +189,17 @@ byte currentDailyPeriod;     // We will keep daily counts as well as period coun
 int countTemp = 0;          // Will use this to see if we should display a day or hours counts
 
 // Variables for the control byte
-// Control Register  (8 - 6 Reserved, 5-Clear Counts, 4-Simblee Health, 3-Start / Stop Test, 2-Set Sensitivity, 1-Set Delay)
+// Control Register  (8 - 7 Reserved, 6 - Simblee Reset, 5-Clear Counts, 4-Simblee Sleep, 3-Start / Stop Test, 2-Set Sensitivity, 1-Set Delay)
 byte signalDebounceChange = B00000001;
 byte clearDebounceChange = B11111110;
 byte signalSentitivityChange = B00000010;
 byte clearSensitivityChange = B11111101;
 byte toggleStartStop = B00000100;
-byte toggleSimbleeHealth = B00001000;
+byte toggleSimbleeSleep = B00001000;
 byte signalClearCounts = B00010000;
 byte clearClearCounts = B11101111;
+byte signalSimbleeReset = B00100000;    // Simblee will set this flag on disconnect
+byte clearSimbleeReset = B11011111; // The only thing the Arduino will do is clear the Simblee Reset Bit
 byte controlRegisterValue;
 byte oldControlRegisterValue;
 unsigned long lastCheckedControlRegister;
@@ -224,7 +229,7 @@ boolean LEDSon = true;             // Are the LEDs on or off
 unsigned int LEDSonTime = 30000;   // By default, turn the LEDS on for 30 seconds - remember only awake time counts not real seconds
 int numberHourlyDataPoints;   // How many hourly counts are there
 int numberDailyDataPoints;   // How many daily counts are there
-const char* releaseNumber = "1.30";
+const char* releaseNumber = SOFTWARERELEASENUMBER;
 
 
 // Add setup code
@@ -288,10 +293,10 @@ void setup()
         RTC.squareWave(SQWAVE_NONE);            //Disable the default square wave of the SQW pin.
         RTC.alarm(ALARM_1);                     // This will clear the Alarm flags
         RTC.alarm(ALARM_2);                     // This will clear the Alarm flags
-        RTC.setAlarm(ALM1_MATCH_HOURS,00,00,20,0); // Set the evening Alarm
-        RTC.setAlarm(ALM2_MATCH_HOURS,00,00,7,0); // Set the morning Alarm
-        //RTC.setAlarm(ALM1_MATCH_MINUTES,00,42,00,0); // Start Alarm - for debugging
-        //RTC.setAlarm(ALM2_MATCH_MINUTES,00,43,00,0); // Wake Alarm - for debugging
+        RTC.setAlarm(ALM1_MATCH_HOURS,00,00,PARKCLOSES,0); // Set the evening Alarm
+        RTC.setAlarm(ALM2_MATCH_HOURS,00,00,PARKOPENS,0); // Set the morning Alarm
+        //RTC.setAlarm(ALM1_MATCH_MINUTES,00,45,00,0); // Start Alarm - for debugging
+        //RTC.setAlarm(ALM2_MATCH_MINUTES,00,47,00,0); // Wake Alarm - for debugging
         RTC.alarmInterrupt(ALARM_2, true);      // Connect the Interrupt to the Alarms (or not)
         RTC.alarmInterrupt(ALARM_1, true);
     GiveUpTheBus();
@@ -518,23 +523,27 @@ void loop()
             TakeTheBus();
                 t = RTC.get();
             GiveUpTheBus();
-            controlRegisterValue &= clearClearCounts;
-            FRAMwrite8(CONTROLREGISTER, controlRegisterValue);
             hourlyPersonCount = 0;
             dailyPersonCount = 0;
             FRAMwrite16(CURRENTHOURLYCOUNTADDR, hourlyPersonCount);  // Load Hourly Count to memory
             FRAMwrite16(CURRENTDAILYCOUNTADDR, dailyPersonCount);   // Load Daily Count to memory
             FRAMwrite32(CURRENTCOUNTSTIME, t);   // Write to FRAM - this is so we know when the last counts were saved
             Serial.println(F("Current Counts Cleared"));
+            controlRegisterValue &= clearClearCounts;
+            FRAMwrite8(CONTROLREGISTER, controlRegisterValue);
         }
-        else if (controlRegisterValue & toggleSimbleeHealth)
+        else if (controlRegisterValue & signalSimbleeReset)  // If the reset flag is set
         {
-            Serial.println(F("Resetting Simblee"));
-            pinMode(RESETPIN, OUTPUT);
-            digitalWrite(RESETPIN, LOW);
-            NonBlockingDelay(100);
-            digitalWrite(RESETPIN, HIGH);
-            pinMode(RESETPIN, INPUT);
+            if (!(controlRegisterValue & toggleSimbleeSleep)) // Only reset if the Simblee is awake
+            {
+                Serial.println(F("Resetting Simblee"));
+                pinMode(RESETPIN, OUTPUT);
+                digitalWrite(RESETPIN, LOW);
+                NonBlockingDelay(100);
+                digitalWrite(RESETPIN, HIGH);
+                pinMode(RESETPIN, INPUT);
+            }
+            FRAMwrite8(CONTROLREGISTER, controlRegisterValue & clearSimbleeReset);  // Reset the Simblee Sleep flag
         }
         else if (LEDSon && millis() >= LEDSonTime)
         {
@@ -542,8 +551,6 @@ void loop()
             LEDSon = false; // This keeps us from entering this conditional until there is a change
             Serial.println(F("Turn off the LEDs"));
         }
-        controlRegisterValue = FRAMread8(CONTROLREGISTER);
-        FRAMwrite8(CONTROLREGISTER, controlRegisterValue | toggleSimbleeHealth);    // Sets the health flag - Simblee has 1 sec to clear it - or else
     }
 }
 
