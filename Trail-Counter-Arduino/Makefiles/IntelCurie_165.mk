@@ -165,9 +165,9 @@ USB_RESET  = python $(UTILITIES_PATH)/reset_1200.py
 
 # ~
 ifeq ($(MAKECMDGOALS),debug)
-    OPTIMISATION   = -O0 -g
+    OPTIMISATION   ?= -O0 -g
 else
-    OPTIMISATION   = -Os
+    OPTIMISATION   ?= -Os
 endif
 # ~~
 

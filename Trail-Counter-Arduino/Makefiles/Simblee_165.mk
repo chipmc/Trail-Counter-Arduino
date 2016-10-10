@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: May 10, 2016 release 4.5.5
+# Last update: Oct 08, 2015 release 5.3.1
 
 
 
@@ -110,7 +110,7 @@ OBJCOPYFLAGS  = -v -Oihex
 #
 TARGET_HEXBIN = $(TARGET_HEX)
 
-MAX_RAM_SIZE = $(call PARSE_BOARD,$(BOARD_TAG),upload.ram.maximum_size)
+#MAX_RAM_SIZE = $(call PARSE_BOARD,$(BOARD_TAG),upload.ram.maximum_size)
 
 
 # Commands
@@ -118,7 +118,7 @@ MAX_RAM_SIZE = $(call PARSE_BOARD,$(BOARD_TAG),upload.ram.maximum_size)
 #
 FIRST_O_IN_LD   = $$(find . -name syscalls.c.o) $$(find . -name variant.cpp.o)
 
-COMMAND_LINK    = $(CXX) $(LDFLAGS) $(OUT_PREPOSITION)$@ -Wl,--start-group $(FIRST_O_IN_LD) $(LOCAL_OBJS) $(INCLUDE_A) $(TARGET_A) -Wl,--end-group
+COMMAND_LINK    = $(CXX) $(LDFLAGS) $(OUT_PREPOSITION)$@ -Wl,--start-group $(FIRST_O_IN_LD) $(LOCAL_OBJS) $(LOCAL_ARCHIVES) $(INCLUDE_A) $(TARGET_A) -Wl,--end-group
 
 COMMAND_UPLOAD  = $(UPLOADER_EXEC) -q $(USED_SERIAL_PORT) $(TARGET_HEX)
 

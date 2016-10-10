@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Jul 02, 2016 release 4.5.7
+# Last update: Sep 27, 2016 release 5.2.7
 
 
 
@@ -84,12 +84,18 @@ endif
 # wildcard required for ~ management
 # ?ibraries required for libraries and Libraries
 #
+ifeq ($(USER_LIBRARY_DIR)/Arduino17/preferences.txt,)
 ifeq ($(USER_LIBRARY_DIR)/Arduino15/preferences.txt,)
     $(error Error: run Arduino once and define the sketchbook path)
 endif
+endif
 
 ifeq ($(wildcard $(SKETCHBOOK_DIR)),)
-    SKETCHBOOK_DIR = $(shell grep sketchbook.path $(USER_LIBRARY_DIR)/Arduino15/preferences.txt | cut -d = -f 2)
+    ifneq ($(USER_LIBRARY_DIR)/Arduino17/preferences.txt,)
+        SKETCHBOOK_DIR = $(shell grep sketchbook.path $(USER_LIBRARY_DIR)/Arduino17/preferences.txt | cut -d = -f 2)
+    else
+        SKETCHBOOK_DIR = $(shell grep sketchbook.path $(USER_LIBRARY_DIR)/Arduino15/preferences.txt | cut -d = -f 2)
+    endif
 endif
 
 ifeq ($(wildcard $(SKETCHBOOK_DIR)),)
@@ -172,9 +178,9 @@ USB_RESET  = python $(UTILITIES_PATH)/reset_1200.py
 
 # ~
 ifeq ($(MAKECMDGOALS),debug)
-    OPTIMISATION   = -O0 -ggdb
+    OPTIMISATION   ?= -O0 -ggdb
 else
-    OPTIMISATION   = -Os
+    OPTIMISATION   ?= -Os
 endif
 # ~~
 
@@ -240,7 +246,7 @@ OBJCOPYFLAGS  = -v -Obinary
 #
 #FIRST_O_IN_LD   = $$(find . -name syscalls.c.o)
 FIRST_O_IN_LD   = $(shell find . -name syscalls.c.o)
-COMMAND_LINK    = $(CXX) $(LDFLAGS) $(OUT_PREPOSITION)$@ -L$(OBJDIR) -Wl,--start-group $(FIRST_O_IN_LD) $(LOCAL_OBJS) $(TARGET_A) -Wl,--end-group
+COMMAND_LINK    = $(CXX) $(LDFLAGS) $(OUT_PREPOSITION)$@ -L$(OBJDIR) -Wl,--start-group $(FIRST_O_IN_LD) $(LOCAL_OBJS) $(LOCAL_ARCHIVES) $(TARGET_A) -Wl,--end-group
 # Upload command
 #
 

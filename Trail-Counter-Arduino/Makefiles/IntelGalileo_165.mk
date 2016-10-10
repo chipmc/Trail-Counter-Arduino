@@ -144,9 +144,9 @@ MCU             = $(call PARSE_BOARD,$(BOARD_TAG),build.mcu)
 
 # ~
 ifeq ($(MAKECMDGOALS),debug)
-    OPTIMISATION   = -O0 -g
+    OPTIMISATION   ?= -O0 -g
 else
-    OPTIMISATION   = -Os
+    OPTIMISATION   ?= -Os
 endif
 # ~~
 
@@ -211,6 +211,6 @@ TARGET_HEXBIN = $(TARGET_HEX)
 # ----------------------------------
 # Link command
 #
-COMMAND_LINK    = $(CXX) $(LDFLAGS) $(OUT_PREPOSITION)$@ $(LOCAL_OBJS) $(TARGET_A) -L$(OBJDIR) -lm -lpthread
+COMMAND_LINK    = $(CXX) $(LDFLAGS) $(OUT_PREPOSITION)$@ $(LOCAL_OBJS) $(LOCAL_ARCHIVES) $(TARGET_A) -L$(OBJDIR) -lm -lpthread
 
 #COMMAND_UPLOAD  = bash $(UPLOADER_EXEC) $(UPLOADER_OPTS) $(TARGET_ELF) $(USED_SERIAL_PORT)

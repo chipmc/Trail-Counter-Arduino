@@ -181,7 +181,7 @@ NM      = $(APP_TOOLS_PATH)/arm-none-eabi-nm
 MCU_FLAG_NAME    = mcpu
 MCU              = $(call PARSE_BOARD,$(BOARD_TAG),build.mcu)
 F_CPU            = $(call PARSE_BOARD,$(BOARD_TAG),build.f_cpu)
-OPTIMISATION     = -Os -g3
+OPTIMISATION    ?= -Os -g3
 
 INCLUDE_PATH     = $(CORE_LIB_PATH) $(APP_LIB_PATH) $(VARIANT_PATH) $(HARDWARE_PATH)
 INCLUDE_PATH    += $(sort $(dir $(APP_LIB_CPP_SRC) $(APP_LIB_C_SRC) $(APP_LIB_H_SRC) $(APP_LIB_IPP_SRC)))
@@ -306,6 +306,6 @@ endif
 # ----------------------------------
 # Link command
 #
-COMMAND_LINK    = $(CXX) $(LDFLAGS) $(LOCAL_OBJS) -o $(TARGET_ELF) $(LDFLAGS2) $(LDFLAGS3)
+COMMAND_LINK    = $(CXX) $(LDFLAGS) $(LOCAL_OBJS) $(LOCAL_ARCHIVES) -o $(TARGET_ELF) $(LDFLAGS2) $(LDFLAGS3)
 
 #COMMAND_UPLOAD  = $(AVRDUDE_EXEC) $(AVRDUDE_COM_OPTS) $(AVRDUDE_OPTS) -P$(USED_SERIAL_PORT) -Uflash:w:$(TARGET_HEX):i

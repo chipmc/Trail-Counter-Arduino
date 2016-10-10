@@ -20,7 +20,7 @@
 // THE SKETCH IS IN Trail_Counter_Arduino.cpp
 // ----------------------------------
 //
-// Last update: Aug 26, 2016 release 5.1.8
+// Last update: Sep 16, 2016 release 5.2.5
 
 // IDE selection
 #if defined(EMBEDXCODE)
@@ -2346,7 +2346,7 @@ int main(void)
     // Need to turn off SPI as it's on at boot for some reason
     SPCR &= ~_BV(SPE);
 
-    Serial.begin();
+    //    Serial.begin();
     setup();
 
     for (;;)

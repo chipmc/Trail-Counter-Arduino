@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Aug 24, 2016 release 5.1.7
+# Last update: Sep 27, 2016 release 5.2.7
 
 #ifneq ($(shell grep 1.5 $(ARDUINO_PATH)/lib/version.txt),)
 #    WARNING_MESSAGE = Arduino 1.0.x is replaced by Arduino 1.6.1 or 1.7.x.
@@ -89,12 +89,18 @@ endif
 # wildcard required for ~ management
 # ?ibraries required for libraries and Libraries
 #
+ifeq ($(USER_LIBRARY_DIR)/Arduino17/preferences.txt,)
 ifeq ($(USER_LIBRARY_DIR)/Arduino15/preferences.txt,)
     $(error Error: run Arduino once and define the sketchbook path)
 endif
+endif
 
 ifeq ($(wildcard $(SKETCHBOOK_DIR)),)
-    SKETCHBOOK_DIR = $(shell grep sketchbook.path $(USER_LIBRARY_DIR)/Arduino15/preferences.txt | cut -d = -f 2)
+    ifneq ($(USER_LIBRARY_DIR)/Arduino17/preferences.txt,)
+        SKETCHBOOK_DIR = $(shell grep sketchbook.path $(USER_LIBRARY_DIR)/Arduino17/preferences.txt | cut -d = -f 2)
+    else
+        SKETCHBOOK_DIR = $(shell grep sketchbook.path $(USER_LIBRARY_DIR)/Arduino15/preferences.txt | cut -d = -f 2)
+    endif
 endif
 
 ifeq ($(wildcard $(SKETCHBOOK_DIR)),)
@@ -187,9 +193,9 @@ endif
 
 # ~
 ifeq ($(MAKECMDGOALS),debug)
-    OPTIMISATION   = -O0 -g
+    OPTIMISATION  ?= -O0 -g
 else
-    OPTIMISATION   = -Os
+    OPTIMISATION  ?= -Os
 endif
 # ~~
 
@@ -253,7 +259,7 @@ OBJCOPYFLAGS  = -v -Obinary
 # Link command
 #
 FIRST_O_IN_LD   = $$(find . -name syscalls_sam3.c.o)
-COMMAND_LINK    = $(CXX) $(LDFLAGS) $(OUT_PREPOSITION)$@ -L$(OBJDIR) -Wl,--start-group $(FIRST_O_IN_LD) $(SYSTEM_OBJS) $(LOCAL_OBJS) $(TARGET_A) -Wl,--end-group -lm -lgcc
+COMMAND_LINK    = $(CXX) $(LDFLAGS) $(OUT_PREPOSITION)$@ -L$(OBJDIR) -Wl,--start-group $(FIRST_O_IN_LD) $(SYSTEM_OBJS) $(LOCAL_OBJS) $(LOCAL_ARCHIVES) $(TARGET_A) -Wl,--end-group -lm -lgcc
 
 # Upload command
 #

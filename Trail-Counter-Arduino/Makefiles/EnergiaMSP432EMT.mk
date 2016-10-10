@@ -105,9 +105,9 @@ LDSCRIPT         = $(APPLICATION_PATH)/hardware/emt/ti/runtime/wiring/msp432/lin
 
 # ~
 ifeq ($(MAKECMDGOALS),debug)
-    OPTIMISATION   = -O0 -ggdb
+    OPTIMISATION   ?= -O0 -ggdb
 else
-    OPTIMISATION   = -Os
+    OPTIMISATION   ?= -Os
 endif
 # ~~
 
@@ -188,6 +188,6 @@ TARGET_HEXBIN = $(TARGET_ELF)
 # Commands
 # ----------------------------------
 #
-COMMAND_LINK = $(CC) $(OUT_PREPOSITION)$@ $(LOCAL_OBJS) $(TARGET_A) $(LDFLAGS)
+COMMAND_LINK = $(CC) $(OUT_PREPOSITION)$@ $(LOCAL_OBJS) $(LOCAL_ARCHIVES) $(TARGET_A) $(LDFLAGS)
 
 COMMAND_UPLOAD = $(UPLOADER_EXEC) load -c $(UPLOADER_OPTS) -f $(TARGET_ELF)

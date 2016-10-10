@@ -105,7 +105,7 @@ NM      = $(APP_TOOLS_PATH)/xtensa-lx106-elf-nm
 MCU_FLAG_NAME    = # mmcu
 MCU              = $(call PARSE_BOARD,$(BOARD_TAG),build.mcu)
 F_CPU            = $(call PARSE_BOARD,$(BOARD_TAG),build.f_cpu)
-OPTIMISATION     = -Os -g
+OPTIMISATION    ?= -Os -g
 
 INCLUDE_PATH     = $(HARDWARE_PATH)/tools/sdk/include
 INCLUDE_PATH    += $(CORE_LIB_PATH)
@@ -170,7 +170,7 @@ TARGET_HEXBIN = $(TARGET_BIN)
 # ----------------------------------
 # Link command
 #
-COMMAND_LINK    = $(CC) $(LDFLAGS) $(OUT_PREPOSITION)$@ -Wl,--start-group $(LOCAL_OBJS) $(TARGET_A) $(L_FLAGS) -Wl,--end-group -LBuilds
+COMMAND_LINK    = $(CC) $(LDFLAGS) $(OUT_PREPOSITION)$@ -Wl,--start-group $(LOCAL_OBJS) $(LOCAL_ARCHIVES) $(TARGET_A) $(L_FLAGS) -Wl,--end-group -LBuilds
 
 COMMAND_COPY    = $(OTHER_TOOLS_PATH)/esptool2/$(DIGISTUMP_OAK_ESPTOOLS_RELEASE)/esptool2 -quiet -bin -boot2 -4096 -iromchksum $(TARGET_ELF) $(TARGET_BIN) .text .data .rodata
 

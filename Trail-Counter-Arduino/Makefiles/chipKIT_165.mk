@@ -151,10 +151,10 @@ VARIANT_OBJS      = $(patsubst $(APPLICATION_PATH)/%,$(OBJDIR)/%,$(VARIANT_OBJ_F
 
 # ~
 ifeq ($(BOARD_PORT),pgm)
-    OPTIMISATION   = -O0
+    OPTIMISATION   ?= -O0
     NO_SERIAL_CONSOLE = 1
 else
-    OPTIMISATION   = -O2
+    OPTIMISATION   ?= -O2
 endif
 # ~~
 
@@ -230,6 +230,6 @@ LDFLAGS   += -mdebugger -mno-peripheral-libs -nostartfiles
 # Link command
 # compatible with MPIDE release 0023-macosx-20130715
 #
-COMMAND_LINK    = $(CXX) $(LDFLAGS) $(OUT_PREPOSITION)$@ $(LOCAL_OBJS) $(TARGET_A) -L$(OBJDIR) -lm
+COMMAND_LINK    = $(CXX) $(LDFLAGS) $(OUT_PREPOSITION)$@ $(LOCAL_OBJS) $(LOCAL_ARCHIVES) $(TARGET_A) -L$(OBJDIR) -lm
 
 COMMAND_UPLOAD  = $(UPLOADER_EXEC) -d $(USED_SERIAL_PORT) $(TARGET_HEX)

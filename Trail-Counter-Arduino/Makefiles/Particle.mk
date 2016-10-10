@@ -113,7 +113,7 @@ GDB         = $(APP_TOOLS_PATH)/arm-none-eabi-gdb
 #ifeq ($(MAKECMDGOALS),debug)
 #    OPTIMISATION   = -O0 -ggdb -DDEBUG
 #else
-    OPTIMISATION   = -Os -DNDEBUG
+    OPTIMISATION   ?= -Os -DNDEBUG
 #endif
 
 #SPARK_MAKE_OPTION := FULL
@@ -139,6 +139,6 @@ endif
 #
 # Link command
 #
-COMMAND_LINK    = $(CXX) $(CPPFLAGS) $(OUT_PREPOSITION)$@ $(STARTUP_O) $(LOCAL_OBJS) -Wl,--start-group $(TARGET_A) $(SPARK_A) -Wl,--end-group $(LDFLAGS)
+COMMAND_LINK    = $(CXX) $(CPPFLAGS) $(OUT_PREPOSITION)$@ $(STARTUP_O) $(LOCAL_OBJS) $(LOCAL_ARCHIVES) -Wl,--start-group $(TARGET_A) $(SPARK_A) -Wl,--end-group $(LDFLAGS)
 
 

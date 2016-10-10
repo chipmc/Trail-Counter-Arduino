@@ -227,9 +227,9 @@ endif
 
 # ~
 ifeq ($(MAKECMDGOALS),debug)
-    OPTIMISATION   = -O0 -g
+    OPTIMISATION  ?= -O0 -g
 else
-    OPTIMISATION   = -Os -g3
+    OPTIMISATION  ?= -Os -g3
 endif
 # ~~
 
@@ -293,7 +293,7 @@ OBJCOPYFLAGS  = -v -Obinary
 # Link command
 #
 FIRST_O_IN_LD   = $$(find . -name syscalls_sam3.c.o)
-COMMAND_LINK    = $(CC) $(LDFLAGS) $(OUT_PREPOSITION)$@ -L$(OBJDIR) -Wl,--start-group $(FIRST_O_IN_LD) $(SYSTEM_OBJS) $(LOCAL_OBJS) $(TARGET_A) -Wl,--end-group -lm -lgcc
+COMMAND_LINK    = $(CC) $(LDFLAGS) $(OUT_PREPOSITION)$@ -L$(OBJDIR) -Wl,--start-group $(FIRST_O_IN_LD) $(SYSTEM_OBJS) $(LOCAL_OBJS) $(LOCAL_ARCHIVES) $(TARGET_A) -Wl,--end-group -lm -lgcc
 
 # Upload command
 #

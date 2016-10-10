@@ -158,9 +158,9 @@ LDSCRIPT = $(call PARSE_BOARD,$(BOARD_TAG),build.rts)
 
 # ~
 ifeq ($(MAKECMDGOALS),debug)
-    OPTIMISATION   = -o0 -g -mn
+    OPTIMISATION   ?= -o0 -g -mn
 else
-    OPTIMISATION   = -o3
+    OPTIMISATION   ?= -o3
 endif
 # ~~
 

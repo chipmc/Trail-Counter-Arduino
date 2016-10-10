@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Jul 02, 2016 release 4.5.7
+# Last update: Sep 29, 2016 release 5.2.9
 
 
 
@@ -65,6 +65,7 @@ BOARDS_TXT       := $(HARDWARE_PATH)/boards.txt
 BOARD_NAME        = $(call PARSE_BOARD,$(BOARD_TAG),build.board)
 
 ARDUINO_NAME         =  $(call PARSE_BOARD,$(BOARD_TAG),build.board)
+BUILD_CORE           = avr
 
 
 # Sketchbook/Libraries path
@@ -177,8 +178,10 @@ CORE_C_SRCS     = $(wildcard $(CORE_LIB_PATH)/*.c $(CORE_LIB_PATH)/*/*.c) # */
 
 avr166_30              = $(filter-out %main.cpp, $(wildcard $(CORE_LIB_PATH)/*.cpp $(CORE_LIB_PATH)/*/*.cpp $(CORE_LIB_PATH)/*/*/*.cpp $(CORE_LIB_PATH)/*/*/*/*.cpp)) # */
 CORE_CPP_SRCS     = $(filter-out %/$(EXCLUDE_LIST),$(avr166_30))
-CORE_AS1_SRCS_OBJ = $(patsubst %.S,%.S.o,$(filter %S, $(CORE_AS_SRCS)))
-CORE_AS2_SRCS_OBJ = $(patsubst %.s,%.s.o,$(filter %s, $(CORE_AS_SRCS)))
+CORE_AS1_SRCS        = $(shell find $(CORE_LIB_PATH) -name \*.S)
+CORE_AS1_SRCS_OBJ = $(patsubst %.S,%.S.o,$(filter %S, $(CORE_AS1_SRCS)))
+CORE_AS2_SRCS        = $(shell find $(CORE_LIB_PATH) -name \*.s)
+CORE_AS2_SRCS_OBJ = $(patsubst %.s,%.s.o,$(filter %s, $(CORE_AS2_SRCS)))
 
 CORE_OBJ_FILES  += $(CORE_C_SRCS:.c=.c.o) $(CORE_CPP_SRCS:.cpp=.cpp.o) $(CORE_AS1_SRCS_OBJ) $(CORE_AS2_SRCS_OBJ)
 #    CORE_OBJS       += $(patsubst $(CORE_LIB_PATH)/%,$(OBJDIR)/%,$(CORE_OBJ_FILES))
@@ -217,6 +220,8 @@ INCLUDE_PATH   += $(sort $(dir $(APP_LIB_CPP_SRC) $(APP_LIB_C_SRC) $(APP_LIB_H_S
 #INCLUDE_PATH   += $(sort $(dir $(APP_LIB_H_SRC)))
 INCLUDE_PATH   += $(sort $(dir $(BUILD_APP_LIB_CPP_SRC) $(BUILD_APP_LIB_C_SRC)))
 
+FIRST_O_IN_A     = $$(find . -name wiring_pulse.S.o)
+
 
 # Flags for gcc, g++ and linker
 # ----------------------------------
@@ -225,19 +230,19 @@ INCLUDE_PATH   += $(sort $(dir $(BUILD_APP_LIB_CPP_SRC) $(BUILD_APP_LIB_C_SRC)))
 #
 CPPFLAGS     = $(OPTIMISATION) $(WARNING_FLAGS)
 CPPFLAGS    += -$(MCU_FLAG_NAME)=$(MCU) -DF_CPU=$(F_CPU)
-CPPFLAGS    += -ffunction-sections	-fdata-sections
+CPPFLAGS    += -ffunction-sections -fdata-sections
 CPPFLAGS    += $(addprefix -D, printf=iprintf $(PLATFORM_TAG))
 CPPFLAGS    += $(addprefix -I, $(INCLUDE_PATH))
 
 # Specific CFLAGS for gcc only
 # gcc uses CPPFLAGS and CFLAGS
 #
-CFLAGS       =
+CFLAGS       = -std=gnu11
 
 # Specific CXXFLAGS for g++ only
 # g++ uses CPPFLAGS and CXXFLAGS
 #
-CXXFLAGS     = -fdata-sections -fno-threadsafe-statics
+CXXFLAGS     = -fdata-sections -fno-threadsafe-statics -std=gnu++11 -fpermissive -fno-exceptions
 
 # Specific ASFLAGS for gcc assembler only
 # gcc assembler uses CPPFLAGS and ASFLAGS
@@ -248,7 +253,7 @@ ASFLAGS      = -x assembler-with-cpp
 # linker uses CPPFLAGS and LDFLAGS
 #
 LDFLAGS      = $(OPTIMISATION) $(WARNING_FLAGS)
-LDFLAGS     += -$(MCU_FLAG_NAME)=$(MCU) -Wl,--gc-sections 
+LDFLAGS     += -$(MCU_FLAG_NAME)=$(MCU) -Wl,--gc-sections
 
 # Specific OBJCOPYFLAGS for objcopy only
 # objcopy uses OBJCOPYFLAGS only
@@ -257,13 +262,13 @@ LDFLAGS     += -$(MCU_FLAG_NAME)=$(MCU) -Wl,--gc-sections
 
 # Target
 #
-TARGET_HEXBIN = $(TARGET_HEX)
-#TARGET_EEP    = $(OBJDIR)/$(TARGET).hex
+TARGET_HEXBIN    = $(TARGET_HEX)
+TARGET_EEP       = $(OBJDIR)/$(TARGET).eep
 
 
 # Commands
 # ----------------------------------
 # Link command
 #
-COMMAND_LINK    = $(CXX) $(OUT_PREPOSITION)$@ $(LOCAL_OBJS) $(TARGET_A) $(LDFLAGS) -LBuilds -lm
+COMMAND_LINK    = $(CC) $(OUT_PREPOSITION)$@ $(LOCAL_OBJS) $(LOCAL_ARCHIVES) $(TARGET_A) $(LDFLAGS) -LBuilds -lm
 

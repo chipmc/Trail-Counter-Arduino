@@ -144,7 +144,7 @@ USB_RESET  = python $(UTILITIES_PATH)/reset_1200.py
 MCU_FLAG_NAME    = mmcu
 MCU              = $(call PARSE_BOARD,$(BOARD_TAG),build.mcu)
 F_CPU            = $(call PARSE_BOARD,$(BOARD_TAG),build.f_cpu)
-OPTIMISATION     = -Os
+OPTIMISATION    ?= -Os
 
 INCLUDE_PATH     = $(CORE_LIB_PATH) $(APP_LIB_PATH) $(VARIANT_PATH) $(HARDWARE_PATH)
 INCLUDE_PATH    += $(sort $(dir $(APP_LIB_CPP_SRC) $(APP_LIB_C_SRC) $(APP_LIB_H_SRC)))
@@ -203,6 +203,6 @@ TARGET_HEXBIN    = $(TARGET_HEX)
 # ----------------------------------
 # Link command
 #
-COMMAND_LINK    = $(CC) $(OUT_PREPOSITION)$@ $(LOCAL_OBJS) $(TARGET_A) -LBuilds $(LDFLAGS)
+COMMAND_LINK    = $(CC) $(OUT_PREPOSITION)$@ $(LOCAL_OBJS) $(LOCAL_ARCHIVES) $(TARGET_A) -LBuilds $(LDFLAGS)
 
 COMMAND_UPLOAD  = $(AVRDUDE_EXEC) -p$(AVRDUDE_MCU) -D -c$(AVRDUDE_PROGRAMMER) -P$(USED_SERIAL_PORT) -b$(AVRDUDE_BAUDRATE) -C$(AVRDUDE_CONF) -Uflash:w:$(TARGET_HEX):i

@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Aug 28, 2016 release 5.1.9
+# Last update: Oct 08, 2015 release 5.3.2
 
 
 
@@ -43,6 +43,8 @@ else ifeq ($(UPLOADER),lightblue_loader)
 else
 #    general case
     ifneq ($(MAKECMDGOALS),boards)
+        ifneq ($(MAKECMDGOALS),archive)
+        ifneq ($(MAKECMDGOALS),unarchive)
         ifneq ($(MAKECMDGOALS),build)
         ifneq ($(MAKECMDGOALS),make)
         ifneq ($(MAKECMDGOALS),document)
@@ -88,6 +90,8 @@ else
                 $(shell ls -1 $(BOARD_PORT) > $(UTILITIES_PATH)/serial.txt)
 
             endif
+        endif
+        endif
         endif
         endif
         endif
@@ -270,7 +274,8 @@ LOCAL_LIB_PATH  = .
 
 ifndef LOCAL_LIBS_LIST
     s206            = $(sort $(dir $(wildcard $(LOCAL_LIB_PATH)/*/*.h))) # */
-    LOCAL_LIBS_LIST = $(subst $(LOCAL_LIB_PATH)/,,$(filter-out $(EXCLUDE_LIST)/,$(s206))) # */
+    s212            = $(subst $(LOCAL_LIB_PATH)/,,$(filter-out $(EXCLUDE_LIST)/,$(s206))) # */
+    LOCAL_LIBS_LIST = $(shell echo $(s212)' ' | sed 's://:/:g' | sed 's:/ : :g')
 endif
 
 ifneq ($(LOCAL_LIBS_LIST),0)
@@ -294,6 +299,33 @@ LOCAL_AS2_SRCS   = $(wildcard $(patsubst %,%/*.s,$(LOCAL_LIBS))) $(wildcard $(LO
 
 LOCAL_OBJ_FILES = $(LOCAL_C_SRCS:.c=.c.o) $(LOCAL_CPP_SRCS:.cpp=.cpp.o) $(LOCAL_PDE_SRCS:.$(SKETCH_EXTENSION)=.$(SKETCH_EXTENSION).o) $(LOCAL_CC_SRCS:.cc=.cc.o) $(LOCAL_AS1_SRCS:.S=.S.o) $(LOCAL_AS2_SRCS:.s=.s.o)
 LOCAL_OBJS      = $(patsubst $(LOCAL_LIB_PATH)/%,$(OBJDIR)/%,$(filter-out %/$(PROJECT_NAME_AS_IDENTIFIER).o,$(LOCAL_OBJ_FILES)))
+
+
+# Local archives
+#
+LOCAL_ARCHIVES  = $(wildcard $(patsubst %,%/*.a,$(LOCAL_LIBS))) $(wildcard $(LOCAL_LIB_PATH)/*.a) # */
+
+# Check against $(BOARD_TAG).board
+#
+ifneq ($(MAKECMDGOALS),archive)
+ifneq ($(MAKECMDGOALS),unarchive)
+    LOCAL_TARGETS   = $(shell find $(LOCAL_LIBS) -name *.board -exec basename {} .board \;)
+    LOCAL_RESULT    = $(filter-out $(BOARD_TAG),$(LOCAL_TARGETS))
+
+    ifneq ($(trim $(LOCAL_ARCHIVES)),)
+    ifeq ($(LOCAL_TARGETS),)
+        $(info ---- Pre-compiled libraries ----)
+        $(error Missing .board file for one or more pre-compiled libraries)
+    endif
+    endif
+    ifneq ($(LOCAL_RESULT),)
+        $(info ---- Pre-compiled libraries ----)
+        $(info Found    $(LOCAL_RESULT))
+        $(info Expected $(BOARD_TAG))
+        $(error One or more pre-compiled libraries are not compatible with $(BOARD_TAG))
+    endif
+endif
+endif
 
 # All the objects
 # ??? Does order matter?
@@ -664,7 +696,7 @@ ifneq ($(COMMAND_LINK),)
 else
 		$(call SHOW,"5.4-LINK default",$@,.)
 
-		$(QUIET)$(CXX) $(OUT_PREPOSITION)$@ $(LOCAL_OBJS) $(TARGET_A) $(LDFLAGS)
+		$(QUIET)$(CXX) $(OUT_PREPOSITION)$@ $(LOCAL_OBJS) $(LOCAL_ARCHIVES) $(TARGET_A) $(LDFLAGS)
 endif
 
 
@@ -891,6 +923,7 @@ info:
 		@if [ -f $(UTILITIES_PATH)/embedXcode_check ]; then $(UTILITIES_PATH)/embedXcode_check; fi
 		@echo $(STARTCHRONO)
 ifeq ($(UNKNOWN_BOARD),1)
+		@echo .
 		@echo ==== Info ====
 		@echo 'ERROR	$(BOARD_TAG) board is unknown'
 		@echo ==== Info done ====
@@ -899,6 +932,7 @@ endif
 
 ifneq ($(MAKECMDGOALS),boards)
   ifneq ($(MAKECMDGOALS),clean)
+		@echo .
 		@echo ==== Info ====
 		@echo ---- Project ----
 		@echo 'Target		'$(MAKECMDGOALS)
@@ -993,16 +1027,20 @@ endif
 		@echo . Core libraries from $(CORE_LIB_PATH) # | cut -d. -f1,2
 		@echo $(CORE_LIBS_LIST)
 
+   ifneq ($(APP_LIBS_LIST),0)
 		@echo . Application libraries from $(basename $(APP_LIB_PATH)) # | cut -d. -f1,2
-    ifneq ($(strip $(APP_LIBS_LIST)),)
-		@echo $(APP_LIBS_LIST)
-    endif
-    ifneq ($(BUILD_APP_LIBS_LIST),)
-		@echo $(sort $(BUILD_APP_LIBS_LIST))
+        ifneq ($(strip $(APP_LIBS_LIST)),)
+			@echo $(APP_LIBS_LIST)
+        endif
+        ifneq ($(BUILD_APP_LIBS_LIST),)
+			@echo $(sort $(BUILD_APP_LIBS_LIST))
+        endif
     endif
 
+    ifneq ($(USER_LIBS_LIST),0)
 		@echo . User libraries from $(SKETCHBOOK_DIR)
 		@echo $(USER_LIBS_LIST)
+    endif
 
 		@echo . Local libraries from $(CURRENT_DIR)
 
@@ -1017,7 +1055,15 @@ endif
 			@echo 0
         endif
     endif
-
+    ifneq ($(trim $(LOCAL_ARCHIVES)),)
+		@echo . Local archives from $(CURRENT_DIR)
+#        ifneq ($(wildcard $(LOCAL_LIB_PATH)/*.a),) # */
+			@echo $(subst .a,,$(notdir $(foreach dir,$(LOCAL_LIBS_LIST),$(wildcard $(dir)/*.a)))) # */
+#        endif
+#        ifneq ($(strip $(LOCAL_LIBS_LIST)),)
+#			@echo '$(LOCAL_LIBS_LIST) ' | sed 's/\/ / /g'
+#        endif
+    endif
 		@echo ---- Tools ----
 		@defaults read /System/Library/PrivateFrameworks/ServerInformation.framework/Versions/A/Resources/English.lproj/SIMachineAttributes.plist $$(sysctl hw.model | cut -d: -f2) | grep marketingModel | cut -d\" -f2-3 | sed 's/\\//g'
 		@echo $$(sw_vers -productName) $$(sw_vers -productVersion)' ('$$(sw_vers -buildVersion)')'
@@ -1639,7 +1685,8 @@ ifeq ($(CHANGE_FLAG),1)
 		@echo "Remove all"
 else
 #		$(REMOVE) $(LOCAL_OBJS)
-		@for f in $(LOCAL_OBJS); do if [ -f $$f ]; then rm $$f; fi; done
+		@for f in $(LOCAL_OBJS); do if [ -f $$f ] ; then rm $$f; fi; done
+		@for d in $(LOCAL_LIBS_LIST) ; do if [ -d Builds/$$d ] ; then rm -R Builds/$$d; fi; done
 		@echo "Remove local only"
 		@if [ -f $(OBJDIR)/$(TARGET).elf ] ; then rm $(OBJDIR)/$(TARGET).* ; fi ;
 endif
@@ -1648,21 +1695,55 @@ depends:	$(DEPS)
 		@echo "---- Depends ---- "
 		@cat $(DEPS) > $(DEP_FILE)
 
+# ~
+# Archive rules
+# ----------------------------------
+#
+do_archive:
+		@echo .
+		@echo "==== Archive ==== "
+		@echo "---- Generate ---- "
+		for f in $(LOCAL_LIBS_LIST) ; do if [ -d Builds/$$f ] ; then $(QUIET)$(AR) rcs $$f/$$f.a $$(find Builds/$$f/ -name *.o) ; echo $$f/$$f.a ; echo $(BOARD_TAG) > $$f/$(BOARD_TAG).board ; fi ; done ; # */
+		@echo "---- Rename ---- "
+		@for f in $(LOCAL_LIBS_LIST) ; do find $$f -name '*.cpp' -exec sh -c 'echo "$$0" to "$${0%.cpp}._cpp"' {} \; ; done ;
+		@for f in $(LOCAL_LIBS_LIST) ; do find $$f -name '*.cpp' -exec sh -c 'mv "$$0" "$${0%.cpp}._cpp"' {} \; ; done ;
+		@for f in $(LOCAL_LIBS_LIST) ; do find $$f/ -name '*.c' -exec sh -c 'echo "$$0" to "$${0%.c}._c"' {} \; ; done ;
+		@for f in $(LOCAL_LIBS_LIST) ; do find $$f/ -name '*.c' -exec sh -c 'mv "$$0" "$${0%.c}._c"' {} \; ; done ;
+		@echo "==== Archive done ==== "
+
+unarchive:
+		@echo .
+		@echo "==== Unarchive ==== "
+		@echo "---- Remove ---- "
+		@for f in $(LOCAL_LIBS_LIST) ; do find $$f -name "*.a" -exec echo '{}' \; -delete ; done ;
+		@for f in $(LOCAL_LIBS_LIST) ; do find $$f/ -name '*.board' -delete ; done ;
+		@echo "---- Rename ---- "
+		@for f in $(LOCAL_LIBS_LIST) ; do find $$f -name '*._cpp' -exec sh -c 'echo "$$0" to "$${0%._cpp}.cpp"' {} \; ; done ;
+		@for f in $(LOCAL_LIBS_LIST) ; do find $$f -name '*._cpp' -exec sh -c 'mv "$$0" "$${0%._cpp}.cpp"' {} \; ; done ;
+		@for f in $(LOCAL_LIBS_LIST) ; do find $$f/ -name '*._c' -exec sh -c 'echo "$$0" to "$${0%._c}.c"' {} \; ; done ;
+		@for f in $(LOCAL_LIBS_LIST) ; do find $$f/ -name '*._c' -exec sh -c 'mv "$$0" "$${0%._c}.c"' {} \; ; done ;
+		@echo "==== Unarchive done ==== "
+# ~~
+
 boards:
+		@echo .
 		@echo "==== Boards ===="
 		@ls -1 Configurations/ | sed 's/\(.*\)\..*/\1/'
 		@echo "==== Boards done ==== "
 
 message_all:
+		@echo .
 		@echo "==== All ===="
 
 message_build:
+		@echo .
 		@echo "==== Build ===="
 
 message_compile:
 		@echo "---- Compile ----"
 
 message_upload:
+		@echo .
 		@echo "==== Upload ===="
 
 end_all:
@@ -1676,10 +1757,14 @@ fast: 		info message_fast changed compile reset raw_upload serial_option end_fas
 
 make:		info message_make changed compile end_make prepare
 
+archive:	info message_make changed compile end_make do_archive prepare
+
 message_fast:
+		@echo .
 		@echo "==== Fast ===="
 
 message_make:
+		@echo .
 		@echo "==== Make ===="
 
 end_make:
@@ -1690,7 +1775,7 @@ end_fast:
 # ~~
 
 # cat Step2.mk | grep -e "^[A-z]\+:" | cut -d: -f1
-.PHONY:	all boards build changed clean compile depends end_all end_build end_fast end_make fast info ispload make message_all message_build message_compile message_fast message_make message_upload prepare raw_upload reset serial serial_option size upload
+.PHONY:	all boards build changed clean compile depends end_all end_build end_fast end_make fast info ispload make message_all message_build message_compile message_fast message_make message_upload prepare raw_upload reset serial serial_option size upload archive do_archive unarchive
 
 
 

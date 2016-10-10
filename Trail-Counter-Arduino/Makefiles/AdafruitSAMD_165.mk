@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Aug 30, 2016 release 5.2.1
+# Last update: Sep 28, 2016 release 5.2.8
 
  
 
@@ -187,7 +187,7 @@ GDB     = $(APP_TOOLS_PATH)/arm-none-eabi-gdb
 MCU_FLAG_NAME    = mcpu
 MCU              = $(call PARSE_BOARD,$(BOARD_TAG),build.mcu)
 F_CPU            = $(call PARSE_BOARD,$(BOARD_TAG),build.f_cpu)
-OPTIMISATION     = -Os -g3
+OPTIMISATION    ?= -Os -g3
 
 # Adafruit Feather M0 USB PID VID
 #
@@ -277,6 +277,6 @@ endif
 # ----------------------------------
 # Link command
 #
-COMMAND_LINK    = $(CC) -L$(OBJDIR) $(LDFLAGS) $(OUT_PREPOSITION)$@ -L$(OBJDIR) $(LOCAL_OBJS) -Wl,--start-group -lm $(TARGET_A) -Wl,--end-group
+COMMAND_LINK    = $(CC) -L$(OBJDIR) $(LDFLAGS) $(OUT_PREPOSITION)$@ -L$(OBJDIR) $(LOCAL_OBJS) $(LOCAL_ARCHIVES) -Wl,--start-group -lm $(TARGET_A) -Wl,--end-group
 
 #COMMAND_UPLOAD  = $(AVRDUDE_EXEC) $(AVRDUDE_COM_OPTS) $(AVRDUDE_OPTS) -P$(USED_SERIAL_PORT) -Uflash:w:$(TARGET_HEX):i

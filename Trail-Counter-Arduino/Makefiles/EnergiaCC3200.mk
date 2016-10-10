@@ -166,9 +166,9 @@ VARIANT_PATH = $(APPLICATION_PATH)/hardware/cc3200/variants/$(VARIANT)
 
 # ~
 ifeq ($(MAKECMDGOALS),debug)
-    OPTIMISATION   = -O0 -ggdb
+    OPTIMISATION   ?= -O0 -ggdb
 else
-    OPTIMISATION   = -Os
+    OPTIMISATION   ?= -Os
 endif
 # ~~
 
@@ -237,5 +237,5 @@ TARGET_HEXBIN = $(TARGET_BIN)
 # Commands
 # ----------------------------------
 #
-COMMAND_LINK = $(CXX) $(LDFLAGS) $(OUT_PREPOSITION)$@ $(SYSTEM_OBJS) $(LOCAL_OBJS) $(TARGET_A) $(CORE_A) -LBuilds -lm -lc -lgcc -lm
+COMMAND_LINK = $(CXX) $(LDFLAGS) $(OUT_PREPOSITION)$@ $(SYSTEM_OBJS) $(LOCAL_OBJS) $(LOCAL_ARCHIVES) $(TARGET_A) $(CORE_A) -LBuilds -lm -lc -lgcc -lm
 

@@ -194,9 +194,9 @@ USB_TOUCH := $(call PARSE_BOARD,$(BOARD_TAG),upload.protocol)
 
 # ~
 ifeq ($(MAKECMDGOALS),debug)
-    OPTIMISATION   = -ggdb
+    OPTIMISATION   ?= -ggdb
 else
-    OPTIMISATION   = -Os -g
+    OPTIMISATION   ?= -Os -g
 endif
 # ~~
 
@@ -270,7 +270,7 @@ FIRST_O_IN_A = $$(find . -name pulse_asm.S.o)
 #FIRST_O_IN_LD   = $$(find . -name syscalls.c.o)
 #FIRST_O_IN_LD   = $(shell find . -name syscalls.c.o)
 
-COMMAND_LINK    = $(CC) -L$(OBJDIR) $(LDFLAGS) $(OUT_PREPOSITION)$@ -L$(OBJDIR) $(LOCAL_OBJS) -Wl,--start-group -lm $(TARGET_A) -Wl,--end-group
+COMMAND_LINK    = $(CC) -L$(OBJDIR) $(LDFLAGS) $(OUT_PREPOSITION)$@ -L$(OBJDIR) $(LOCAL_OBJS) $(LOCAL_ARCHIVES) -Wl,--start-group -lm $(TARGET_A) -Wl,--end-group
 # Upload command
 #
 

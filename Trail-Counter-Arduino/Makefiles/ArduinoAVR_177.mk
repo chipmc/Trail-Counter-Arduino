@@ -8,7 +8,7 @@
 # All rights reserved
 #
 #
-# Last update: Jul 02, 2016 release 4.5.7
+# Last update: Sep 27, 2016 release 5.2.7
 
 
 
@@ -52,13 +52,20 @@ BUILD_CORE           = avr
 # wildcard required for ~ management
 # ?ibraries required for libraries and Libraries
 #
+ifeq ($(USER_LIBRARY_DIR)/Arduino17/preferences.txt,)
 ifeq ($(USER_LIBRARY_DIR)/Arduino15/preferences.txt,)
     $(error Error: run Arduino once and define the sketchbook path)
 endif
+endif
 
 ifeq ($(wildcard $(SKETCHBOOK_DIR)),)
-    SKETCHBOOK_DIR = $(shell grep sketchbook.path $(USER_LIBRARY_DIR)/Arduino15/preferences.txt | cut -d = -f 2)
+    ifneq ($(USER_LIBRARY_DIR)/Arduino17/preferences.txt,)
+        SKETCHBOOK_DIR = $(shell grep sketchbook.path $(USER_LIBRARY_DIR)/Arduino17/preferences.txt | cut -d = -f 2)
+    else
+        SKETCHBOOK_DIR = $(shell grep sketchbook.path $(USER_LIBRARY_DIR)/Arduino15/preferences.txt | cut -d = -f 2)
+    endif
 endif
+
 ifeq ($(wildcard $(SKETCHBOOK_DIR)),)
    $(error Error: sketchbook path not found)
 endif
@@ -232,5 +239,5 @@ TARGET_HEXBIN = $(TARGET_HEX)
 # ----------------------------------
 # Link command
 #
-COMMAND_LINK    = $(CXX) $(OUT_PREPOSITION)$@ $(LOCAL_OBJS) $(TARGET_A) $(LDFLAGS) -LBuilds -lm
+COMMAND_LINK    = $(CXX) $(OUT_PREPOSITION)$@ $(LOCAL_OBJS) $(LOCAL_ARCHIVES) $(TARGET_A) $(LDFLAGS) -LBuilds -lm
 

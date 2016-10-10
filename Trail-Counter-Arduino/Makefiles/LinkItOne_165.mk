@@ -94,7 +94,6 @@ NM      = $(APP_TOOLS_PATH)/arm-none-eabi-nm
 MCU_FLAG_NAME    = mcpu
 MCU              = $(call PARSE_BOARD,$(BOARD_TAG),build.mcu)
 F_CPU            = $(call PARSE_BOARD,$(BOARD_TAG),build.f_cpu)
-OPTIMISATION     = -Os
 
 INCLUDE_PATH     = $(HARDWARE_PATH)/system/libmtk
 INCLUDE_PATH    += $(HARDWARE_PATH)/system/libmtk/include
@@ -118,9 +117,9 @@ USB_FLAGS   += -DUSB_PRODUCT='$(USB_PRODUCT)'
 
 # ~
 ifeq ($(MAKECMDGOALS),debug)
-    OPTIMISATION   = -O0 -g
+    OPTIMISATION   ?= -O0 -g
 else
-    OPTIMISATION   = -Os
+    OPTIMISATION   ?= -Os
 endif
 # ~~
 
@@ -186,7 +185,7 @@ TARGET_HEXBIN = $(TARGET_VXP)
 # ----------------------------------
 # Link command
 #
-COMMAND_LINK    = $(CXX) $(LDFLAGS) $(OUT_PREPOSITION)$@ -Wl,--start-group $(LOCAL_OBJS) $(CORE_A) $(TARGET_A) -Wl,--end-group -LBuilds -lm -fpic -pie
+COMMAND_LINK    = $(CXX) $(LDFLAGS) $(OUT_PREPOSITION)$@ -Wl,--start-group $(LOCAL_OBJS) $(LOCAL_ARCHIVES) $(CORE_A) $(TARGET_A) -Wl,--end-group -LBuilds -lm -fpic -pie
 
 # Upload command
 #

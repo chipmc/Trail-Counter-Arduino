@@ -11,7 +11,7 @@
 //  Copyright   (c) 2010-2016 http://embedxcode.weebly.com
 //  Licence     All rights reserved
 //
-// Last update: Apr 04, 2016 release 4.4.4
+// Last update: Sep 16, 2016 release 5.2.5
 
 
 // Board identifier
@@ -41,5 +41,6 @@ HEADER_SEARCH_PATHS = /Applications/Arduino.app/Contents/Resources/Java/** /Appl
 // Maximum RAM size in bytes
 // given by <tag>.upload.maximum_data_size in boards.txt for Arduino 1.5.x
 //
-//MAX_RAM_SIZE = 16384
+// SRAM1 only, SRAM2 = 16384
+MAX_RAM_SIZE = 81920
 

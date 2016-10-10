@@ -11,12 +11,12 @@
 //  Copyright   (c) 2010-2016 http://embedxcode.weebly.com
 //  Licence     All rights reserved
 //
-// Last update: Jun 20, 2014 release 164
+// Last update: Sep 16, 2016 release 5.2.5
 
 // Board identifier
 // See Boards.txt for <tag>.name=Arduino Uno (16 MHz)
 //
-BOARD_TAG  = lightblue-bean
+BOARD_TAG  = bean
 
 // Port (optionnal)
 // most common are /dev/tty.usbserial*, /dev/tty.usbmodem* or /dev/tty.uart*
@@ -38,3 +38,5 @@ HEADER_SEARCH_PATHS = /Applications/LightBlueIDE.app/Contents/Resources/Java/** 
 // given by <tag>.upload.maximum_data_size in boards.txt for Arduino 1.5.x
 //
 MAX_RAM_SIZE = 2048
+
+NO_SERIAL_CONSOLE = 1

@@ -557,9 +557,11 @@ void loop()
 
 void CheckForBump() // This is where we check to see if an interrupt is set when not asleep
 {
-    if (digitalRead(INT2PIN)==0)    // If int2 goes HIGH, either p/l has changed or there's been a single/double tap
+    if (digitalRead(INT2PIN)==0)    // If int2 goes LOW, either p/l has changed or there's been a single/double tap
     {
+        Serial.println(F("int2 has gone low - testing for TAP"));
         if ((source & 0x08)==0x08) { // We are only interested in the TAP register so read that
+            Serial.println(F("Tap detected"));
             if (millis() >= lastBump + debounce) {
                 TakeTheBus();
                     t = RTC.get();

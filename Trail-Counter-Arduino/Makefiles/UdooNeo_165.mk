@@ -180,9 +180,9 @@ USB_TOUCH := $(call PARSE_BOARD,$(BOARD_TAG),upload.use_1200bps_touch)
 
 # ~
 ifeq ($(MAKECMDGOALS),debug)
-    OPTIMISATION   = -O0 -g3
+    OPTIMISATION   ?= -O0 -g3
 else
-    OPTIMISATION   = -Os -g
+    OPTIMISATION   ?= -Os -g
 endif
 # ~~
 
@@ -267,7 +267,7 @@ OBJCOPYFLAGS  = -v -Obinary
 # Archive doesn't seem to work
 #FIRST_O_IN_A     = $$(find ./$(OBJDIR) -name \*mqx.c.o)
 
-#COMMAND_LINK    = $(CC) $(LDFLAGS) $(OUT_PREPOSITION)$@ $(LOCAL_OBJS) $(TARGET_A)
+#COMMAND_LINK    = $(CC) $(LDFLAGS) $(OUT_PREPOSITION)$@ $(LOCAL_OBJS) $(LOCAL_ARCHIVES) $(TARGET_A)
 COMMAND_LINK    = $(CC) $(LDFLAGS) $(OUT_PREPOSITION)$@ $$(find ./$(OBJDIR) -name \*.o)
 
 # Upload command

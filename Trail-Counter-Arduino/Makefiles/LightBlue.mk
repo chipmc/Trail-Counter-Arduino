@@ -8,26 +8,38 @@
 # All rights reserved
 #
 #
-# Last update: Jan 16, 2016 release 4.1.7
+# Last update: Sep 29, 2016 release 5.2.9
 
 
 
-# LightBlue 1.1.0 specifics
+# LightBlue 2.0 specifics
 # ----------------------------------
 #
 PLATFORM         := LightBlue
 BUILD_CORE       := avr
-PLATFORM_TAG      = ARDUINO=105 LIGHTBLUE_CORE EMBEDXCODE=$(RELEASE_NOW)
+PLATFORM_TAG      = ARDUINO=10611 LIGHTBLUE_CORE EMBEDXCODE=$(RELEASE_NOW) ARDUINO_AVR_UNO ARDUINO_ARCH_AVR
 APPLICATION_PATH := $(LIGHTBLUE_PATH)
-
-UPLOADER          = lightblue_loader
-LIGHTBLUE_FLASH_PATH = $(APPLICATION_PATH)/hardware/tools
-LIGHTBLUE_POST_COMPILE = $(LIGHTBLUE_FLASH_PATH)/Bean\ Loader.app/Contents/Resources/post_compile
 
 APP_TOOLS_PATH   := $(APPLICATION_PATH)/hardware/tools/avr/bin
 CORE_LIB_PATH    := $(APPLICATION_PATH)/hardware/LightBlue-Bean/avr/cores/bean
 APP_LIB_PATH     := $(APPLICATION_PATH)/libraries
 BOARDS_TXT       := $(APPLICATION_PATH)/hardware/LightBlue-Bean/avr/boards.txt
+
+# Uploader
+#
+UPLOADER         = lightblue_loader
+UPLOADER_PATH    = $(APPLICATION_PATH)/hardware/tools/bean
+UPLOADER_EXEC    = $(UPLOADER_PATH)/post_compile
+UPLOADER_OPTS    = -board=$(MCU)
+UPLOADER_OPTS   += -tools=$(UPLOADER_PATH)
+#UPLOADER_OPTS   += -path="$(dir $(abspath Builds))"
+UPLOADER_OPTS   += -path="$(dir $(abspath $(TARGET_HEX)))"
+UPLOADER_OPTS   += -file=embeddedcomputing
+UPLOADER_OPTS   += -bean_variant=$(call PARSE_BOARD,$(BOARD_TAG),build.bean_variant)
+COMMAND_UPLOAD   = $(UPLOADER_EXEC) $(UPLOADER_OPTS)
+
+#LIGHTBLUE_FLASH_PATH = $(APPLICATION_PATH)/hardware/tools
+#LIGHTBLUE_POST_COMPILE = $(LIGHTBLUE_FLASH_PATH)/Bean\ Loader.app/Contents/Resources/post_compile
 
 
 # Sketchbook/Libraries path
@@ -49,6 +61,32 @@ USER_LIB_PATH  = $(wildcard $(SKETCHBOOK_DIR)/?ibraries)
 #
 PDEHEADER      = \\\#include \"Arduino.h\"
 
+
+# Two locations for LightBlue libraries
+#
+APP_LIB_PATH     = $(APPLICATION_PATH)/libraries
+APP_LIB_PATH    += $(APPLICATION_PATH)/hardware/LightBlue-Bean/avr/libraries
+
+lb1000    = $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%,$(APP_LIBS_LIST)))
+lb1000   += $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%/utility,$(APP_LIBS_LIST)))
+lb1000   += $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%/src,$(APP_LIBS_LIST)))
+lb1000   += $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%/src/utility,$(APP_LIBS_LIST)))
+lb1000   += $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%/src/$(BUILD_CORE),$(APP_LIBS_LIST)))
+lb1000   += $(foreach dir,$(APP_LIB_PATH),$(patsubst %,$(dir)/%/src/arch/$(BUILD_CORE),$(APP_LIBS_LIST)))
+
+APP_LIB_CPP_SRC = $(foreach dir,$(lb1000),$(wildcard $(dir)/*.cpp)) # */
+APP_LIB_C_SRC   = $(foreach dir,$(lb1000),$(wildcard $(dir)/*.c)) # */
+APP_LIB_S_SRC   = $(foreach dir,$(lb1000),$(wildcard $(dir)/*.S)) # */
+APP_LIB_H_SRC   = $(foreach dir,$(lb1000),$(wildcard $(dir)/*.h)) # */
+
+APP_LIB_OBJS     = $(patsubst $(APPLICATION_PATH)/%.cpp,$(OBJDIR)/%.cpp.o,$(APP_LIB_CPP_SRC))
+APP_LIB_OBJS    += $(patsubst $(APPLICATION_PATH)/%.c,$(OBJDIR)/%.c.o,$(APP_LIB_C_SRC))
+
+BUILD_APP_LIBS_LIST = $(subst $(APP_LIB_PATH)/, ,$(APP_LIB_CPP_SRC))
+
+APP_LIBS_LOCK = 1
+
+
 # Tool-chain names
 #
 CC      = $(APP_TOOLS_PATH)/avr-gcc
@@ -69,29 +107,65 @@ VARIANT      = $(call PARSE_BOARD,$(BOARD_TAG),build.variant)
 VARIANT_PATH = $(APPLICATION_PATH)/hardware/LightBlue-Bean/avr/variants/$(VARIANT)
 
 MCU_FLAG_NAME  = mmcu
-EXTRA_LDFLAGS  =
+EXTRA_LDFLAGS  = -lm
 EXTRA_CPPFLAGS = -MMD -I$(VARIANT_PATH) $(addprefix -D, $(PLATFORM_TAG))
 
-# Leonardo USB PID VID
+
+INCLUDE_PATH    = $(CORE_LIB_PATH) $(APP_LIB_PATH) $(VARIANT_PATH)
+INCLUDE_PATH   += $(sort $(dir $(APP_LIB_CPP_SRC) $(APP_LIB_C_SRC) $(APP_LIB_H_SRC)))
+INCLUDE_PATH   += $(sort $(dir $(BUILD_APP_LIB_CPP_SRC) $(BUILD_APP_LIB_C_SRC)))
+
+
+# Flags for gcc, g++ and linker
+# ----------------------------------
 #
-#USB_TOUCH := $(call PARSE_BOARD,$(BOARD_TAG),upload.protocol)
-#USB_VID   := $(call PARSE_BOARD,$(BOARD_TAG),build.vid)
-#USB_PID   := $(call PARSE_BOARD,$(BOARD_TAG),build.pid)
+# Common CPPFLAGS for gcc, g++, assembler and linker
 #
-#ifneq ($(USB_PID),)
-#    USB_FLAGS += -DUSB_PID=$(USB_PID)
-#else
-    USB_FLAGS += -DUSB_PID=null
-#endif
+CPPFLAGS     = $(OPTIMISATION) $(WARNING_FLAGS)
+CPPFLAGS    += -$(MCU_FLAG_NAME)=$(MCU) -DF_CPU=$(F_CPU)
+CPPFLAGS    += -ffunction-sections -fdata-sections
+CPPFLAGS    += $(addprefix -D, printf=iprintf $(PLATFORM_TAG))
+CPPFLAGS    += $(addprefix -I, $(INCLUDE_PATH))
+
+# Specific CFLAGS for gcc only
+# gcc uses CPPFLAGS and CFLAGS
 #
-#ifneq ($(USB_VID),)
-#    USB_FLAGS += -DUSB_VID=$(USB_VID)
-#else
-    USB_FLAGS += -DUSB_VID=null
-#endif
+CFLAGS       =
+
+# Specific CXXFLAGS for g++ only
+# g++ uses CPPFLAGS and CXXFLAGS
 #
-# Serial 1200 reset
+CXXFLAGS     = -fdata-sections -fno-threadsafe-statics -std=gnu++11 -fno-exceptions
+
+# Specific ASFLAGS for gcc assembler only
+# gcc assembler uses CPPFLAGS and ASFLAGS
 #
-#ifeq ($(USB_TOUCH),avr109)
-#    USB_RESET  = python $(UTILITIES_PATH)/reset_1200.py
-#endif
+ASFLAGS      = -x assembler-with-cpp
+
+# Specific LDFLAGS for linker only
+# linker uses CPPFLAGS and LDFLAGS
+#
+LDFLAGS      = $(OPTIMISATION) $(WARNING_FLAGS)
+LDFLAGS     += -$(MCU_FLAG_NAME)=$(MCU) -Wl,--gc-sections
+
+# Specific OBJCOPYFLAGS for objcopy only
+# objcopy uses OBJCOPYFLAGS only
+#
+#OBJCOPYFLAGS  = -v -Oihex
+
+# Target
+#
+TARGET_HEXBIN = $(TARGET_HEX)
+TARGET_EEP    = $(OBJDIR)/$(TARGET).eep
+
+
+# Commands
+# ----------------------------------
+# Link command
+#
+COMMAND_LINK    = $(CXX) $(OUT_PREPOSITION)$@ $(LOCAL_OBJS) $(LOCAL_ARCHIVES) $(TARGET_A) $(LDFLAGS) -LBuilds -lm
+
+# Upload command
+#
+COMMAND_UPLOAD   = $(UPLOADER_EXEC) $(UPLOADER_OPTS)
+
