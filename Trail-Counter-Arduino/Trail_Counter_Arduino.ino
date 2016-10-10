@@ -86,8 +86,8 @@
 #define ALARMPIN 3         // This one will be used for the RTC Alarm in v9
 #define INT2PIN 2         // This is the interrupt pin that registers taps
 #define I2CPIN 5            // This is a pin which connects to the i2c header - future use
-#define I2CPWR 8            // Turns the i2c port on and off
-#define RESETPIN 16         // This a modification using a bodge wire
+//#define I2CPWR 8            // Turns the i2c port on and off
+//#define RESETPIN 16         // This a modification using a bodge wire
 #else                      // These are the pin assignments for the v8b board
 #define INT1PIN 2         // Not used now but wired for future use
 #define INT2PIN 3         // This is the interrupt pin that registers taps
@@ -128,7 +128,7 @@
 #define YELLOWLED 6       // The yellow LED
 #define LEDPWR 7          // This pin turns on and off the LEDs
 // Finally, here are the variables I want to change often and pull them all together here
-#define SOFTWARERELEASENUMBER "1.3.1"
+#define SOFTWARERELEASENUMBER "1.3.1.1"
 #define PARKCLOSES 20
 #define PARKOPENS 7
 
@@ -241,12 +241,12 @@ void setup()
     Serial.println(releaseNumber);
     pinMode(REDLED, OUTPUT);              // declare the Red LED Pin as an output
     pinMode(YELLOWLED, OUTPUT);           // declare the Yellow LED Pin as as OUTPUT
-    pinMode(LEDPWR, OUTPUT);            // declare the Bluetooth Dongle Power pin as as OUTPUT
+    pinMode(LEDPWR, OUTPUT);            // declare the Power LED pin as as OUTPUT
     digitalWrite(LEDPWR, LOW);          // Turn on the power to the LEDs at startup for as long as is set in LEDsonTime
     pinMode(INT2PIN, INPUT);            // Set up the interrupt pins, they're set as active low with an external pull-up
-    pinMode(I2CPWR, OUTPUT);
-    digitalWrite(I2CPWR, HIGH);         // Turns on the i2c port
-    pinMode(RESETPIN,INPUT);            // Just to make sure - if set to output, you cant program the SIMBLEE
+    //pinMode(I2CPWR, OUTPUT);
+    //digitalWrite(I2CPWR, HIGH);         // Turns on the i2c port
+    //pinMode(RESETPIN,INPUT);            // Just to make sure - if set to output, you cant program the SIMBLEE
 
     
     enable32Khz(1); // turns on the 32k squarewave - to moderate access to the i2c bus
@@ -416,11 +416,11 @@ void loop()
                 hourlyPersonCount = 0;
                 dailyPersonCount = 0;
                 Serial.println(F("Resetting Counters and Simblee"));
-                pinMode(RESETPIN, OUTPUT);
-                digitalWrite(RESETPIN, LOW);
-                NonBlockingDelay(100);
-                digitalWrite(RESETPIN, HIGH);
-                pinMode(RESETPIN, INPUT);
+                //pinMode(RESETPIN, OUTPUT);
+                //digitalWrite(RESETPIN, LOW);
+                //NonBlockingDelay(100);
+                //digitalWrite(RESETPIN, HIGH);
+                //pinMode(RESETPIN, INPUT);
                 break;
             case '6': // Reset FRAM Memory
                 ResetFRAM();
@@ -481,7 +481,7 @@ void loop()
     if (inTest == 1) {
         CheckForBump();
         if (millis() >= lastBump + delaySleep) {
-            Serial.println(F("Entering Sleep mode"));
+            Serial.print(F("Entering Sleep mode..."));
             delay(100);     // this delay is needed, the sleep function will provoke a Serial error otherwise!!
             sleepNow();     // sleep function called here
         }
@@ -532,16 +532,17 @@ void loop()
             controlRegisterValue &= clearClearCounts;
             FRAMwrite8(CONTROLREGISTER, controlRegisterValue);
         }
+        
         else if (controlRegisterValue & signalSimbleeReset)  // If the reset flag is set
         {
+            Serial.println("Resetting the Simblee");
             if (!(controlRegisterValue & toggleSimbleeSleep)) // Only reset if the Simblee is awake
             {
-                Serial.println(F("Resetting Simblee"));
-                pinMode(RESETPIN, OUTPUT);
-                digitalWrite(RESETPIN, LOW);
-                NonBlockingDelay(100);
-                digitalWrite(RESETPIN, HIGH);
-                pinMode(RESETPIN, INPUT);
+        //        pinMode(RESETPIN, OUTPUT);
+        //        digitalWrite(RESETPIN, LOW);
+        //        NonBlockingDelay(100);
+        //        digitalWrite(RESETPIN, HIGH);
+        //        pinMode(RESETPIN, INPUT);
             }
             FRAMwrite8(CONTROLREGISTER, controlRegisterValue & clearSimbleeReset);  // Reset the Simblee Sleep flag
         }
@@ -559,9 +560,11 @@ void CheckForBump() // This is where we check to see if an interrupt is set when
 {
     if (digitalRead(INT2PIN)==0)    // If int2 goes LOW, either p/l has changed or there's been a single/double tap
     {
-        Serial.println(F("int2 has gone low - testing for TAP"));
+        TakeTheBus();
+            source = readRegister(0x0C);  // Read the interrupt source reg.
+            readRegister(0x22);  // Reads the PULSE_SRC register to reset it
+        GiveUpTheBus();
         if ((source & 0x08)==0x08) { // We are only interested in the TAP register so read that
-            Serial.println(F("Tap detected"));
             if (millis() >= lastBump + debounce) {
                 TakeTheBus();
                     t = RTC.get();
@@ -587,10 +590,8 @@ void CheckForBump() // This is where we check to see if an interrupt is set when
                 ledState = !ledState;              // toggle the status of the LEDPIN:
                 digitalWrite(REDLED, ledState);    // update the LED pin itself
             }
-            TakeTheBus();
-                readRegister(0x22);  // Reads the PULSE_SRC register to reset it
-            GiveUpTheBus();
         }
+        source = 0;  // Clear the source variable for next time
     }
 }
 
@@ -622,14 +623,12 @@ void StartStopTest(boolean startTest)  // Since the test can be started from the
         TakeTheBus();
             source = readRegister(0x22);     // Reads the PULSE_SRC register to reset it
         GiveUpTheBus();
-        attachInterrupt(digitalPinToInterrupt(INT2PIN), WakeUpNow, LOW);   // use interrupt and run wakeUpNow when pin 3 goes LOW
         Serial.println(F("Test Started"));
     }
     else {
         inTest = false;
         TakeTheBus();
             source = readRegister(0x22);  // Reads the PULSE_SRC register to reset it
-            detachInterrupt(digitalPinToInterrupt(INT2PIN));           // disables interrupt so the program can execute
             t = RTC.get();
         GiveUpTheBus();
         FRAMwrite16(CURRENTDAILYCOUNTADDR, dailyPersonCount);   // Load Daily Count to memory
@@ -859,10 +858,8 @@ void WakeUpNow()        // Sensor Interrupt Handler
     // timers and code using timers (serial.print and more...) will not work here.
     // we don't really need to execute any special functions here, since we
     // just want the thing to wake up
-    // If int2 goes high, either p/l has changed or there's been a single/double tap
-    TakeTheBus();
-        source = readRegister(0x0C);  // Read the interrupt source reg.
-    GiveUpTheBus();
+    sleep_disable();         // first thing after waking from sleep is to disable sleep...
+    detachInterrupt(digitalPinToInterrupt(INT2PIN));      // disables interrupt
 }
 
 void sleepNow()         // here we put the arduino to sleep
@@ -910,18 +907,15 @@ void sleepNow()         // here we put the arduino to sleep
      *
      * In all but the IDLE sleep modes only LOW can be used.
      */
+    TakeTheBus();       // Make sure the interrupt flag is cleared before we attach it
+        readRegister(0x22);  // Reads the PULSE_SRC register to reset it
+    GiveUpTheBus();
     
     attachInterrupt(digitalPinToInterrupt(INT2PIN),WakeUpNow, LOW); // use interrupt and run function
     
     sleep_mode();            // here the device is actually put to sleep!!
     // THE PROGRAM CONTINUES FROM HERE AFTER WAKING UP
-    
-    sleep_disable();         // first thing after waking from sleep:
-    // disable sleep...
-    detachInterrupt(digitalPinToInterrupt(INT2PIN));      // disables interrupt
-    // wakeUpNow code will not be executed
-    // during normal running time.
-    
+    Serial.println("Waking up");
 }
 
 void toArduinoTime(time_t unixT) // Puts time in format for reporting
