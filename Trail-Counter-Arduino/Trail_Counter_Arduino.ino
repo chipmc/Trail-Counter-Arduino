@@ -86,12 +86,14 @@
 #define ALARMPIN 3         // This one will be used for the RTC Alarm in v9
 #define INT2PIN 2         // This is the interrupt pin that registers taps
 #define I2CPIN 5            // This is a pin which connects to the i2c header - future use
-//#define I2CPWR 8            // Turns the i2c port on and off
-//#define RESETPIN 16         // This a modification using a bodge wire
+#define I2CPWR 8            // Turns the i2c port on and off
+#define RESETPIN 16         // This a modification using a bodge wire
 #else                      // These are the pin assignments for the v8b board
 #define INT1PIN 2         // Not used now but wired for future use
 #define INT2PIN 3         // This is the interrupt pin that registers taps
 #define ALARMPIN 5         // This is the pin with the RTC Alarm clock - not used on Arduino side
+#define I2CPWR 8            // Turns the i2c port on and off
+#define RESETPIN 16         // This a modification using a bodge wire
 #endif
 
 //Time Period Deinifinitions - used for debugging
@@ -128,7 +130,7 @@
 #define YELLOWLED 6       // The yellow LED
 #define LEDPWR 7          // This pin turns on and off the LEDs
 // Finally, here are the variables I want to change often and pull them all together here
-#define SOFTWARERELEASENUMBER "1.3.1.1"
+#define SOFTWARERELEASENUMBER "1.3.2"
 #define PARKCLOSES 20
 #define PARKOPENS 7
 
@@ -244,9 +246,9 @@ void setup()
     pinMode(LEDPWR, OUTPUT);            // declare the Power LED pin as as OUTPUT
     digitalWrite(LEDPWR, LOW);          // Turn on the power to the LEDs at startup for as long as is set in LEDsonTime
     pinMode(INT2PIN, INPUT);            // Set up the interrupt pins, they're set as active low with an external pull-up
-    //pinMode(I2CPWR, OUTPUT);
-    //digitalWrite(I2CPWR, HIGH);         // Turns on the i2c port
-    //pinMode(RESETPIN,INPUT);            // Just to make sure - if set to output, you cant program the SIMBLEE
+    pinMode(I2CPWR, OUTPUT);
+    digitalWrite(I2CPWR, HIGH);         // Turns on the i2c port
+    pinMode(RESETPIN,INPUT);            // Just to make sure - if set to output, you cant program the SIMBLEE
 
     
     enable32Khz(1); // turns on the 32k squarewave - to moderate access to the i2c bus
@@ -416,11 +418,11 @@ void loop()
                 hourlyPersonCount = 0;
                 dailyPersonCount = 0;
                 Serial.println(F("Resetting Counters and Simblee"));
-                //pinMode(RESETPIN, OUTPUT);
-                //digitalWrite(RESETPIN, LOW);
-                //NonBlockingDelay(100);
-                //digitalWrite(RESETPIN, HIGH);
-                //pinMode(RESETPIN, INPUT);
+                pinMode(RESETPIN, OUTPUT);
+                digitalWrite(RESETPIN, LOW);
+                NonBlockingDelay(100);
+                digitalWrite(RESETPIN, HIGH);
+                pinMode(RESETPIN, INPUT);
                 break;
             case '6': // Reset FRAM Memory
                 ResetFRAM();
@@ -438,6 +440,9 @@ void loop()
                 break;
             case '8':   // Dump the hourly data to the monitor
                 numberHourlyDataPoints = FRAMread16(HOURLYPOINTERADDR); // Put this here to reduce FRAM reads
+                Serial.print("Retrieving ");
+                Serial.print(HOURLYCOUNTNUMBER);
+                Serial.println(" hourly counts");
                 Serial.println(F("Hour Ending -   Count  - Battery %"));
                 for (int i=0; i < HOURLYCOUNTNUMBER; i++) { // Will walk through the hourly count memory spots - remember pointer is already incremented
                     unsigned int address = (HOURLYOFFSET + (numberHourlyDataPoints + i) % HOURLYCOUNTNUMBER)*WORDSIZE;
@@ -538,11 +543,11 @@ void loop()
             Serial.println("Resetting the Simblee");
             if (!(controlRegisterValue & toggleSimbleeSleep)) // Only reset if the Simblee is awake
             {
-        //        pinMode(RESETPIN, OUTPUT);
-        //        digitalWrite(RESETPIN, LOW);
-        //        NonBlockingDelay(100);
-        //        digitalWrite(RESETPIN, HIGH);
-        //        pinMode(RESETPIN, INPUT);
+                pinMode(RESETPIN, OUTPUT);
+                digitalWrite(RESETPIN, LOW);
+                NonBlockingDelay(100);
+                digitalWrite(RESETPIN, HIGH);
+                pinMode(RESETPIN, INPUT);
             }
             FRAMwrite8(CONTROLREGISTER, controlRegisterValue & clearSimbleeReset);  // Reset the Simblee Sleep flag
         }
@@ -908,7 +913,15 @@ void sleepNow()         // here we put the arduino to sleep
      * In all but the IDLE sleep modes only LOW can be used.
      */
     TakeTheBus();       // Make sure the interrupt flag is cleared before we attach it
-        readRegister(0x22);  // Reads the PULSE_SRC register to reset it
+        byte c = readRegister(0x0D);  // Read WHO_AM_I register to make sure the i2c bus is functioning before we go to sleep
+        if (c == 0x2A) // WHO_AM_I should always be 0x2A
+        {
+            readRegister(0x22);  // Reads the PULSE_SRC register to reset it
+        }
+        else
+        {
+            lastBump = millis();              // Reset last bump timer to give us a couple more secs for the i2c bus to clear
+        }
     GiveUpTheBus();
     
     attachInterrupt(digitalPinToInterrupt(INT2PIN),WakeUpNow, LOW); // use interrupt and run function
