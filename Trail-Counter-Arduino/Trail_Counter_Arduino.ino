@@ -130,7 +130,7 @@
 #define YELLOWLED 6       // The yellow LED
 #define LEDPWR 7          // This pin turns on and off the LEDs
 // Finally, here are the variables I want to change often and pull them all together here
-#define SOFTWARERELEASENUMBER "1.3.2"
+#define SOFTWARERELEASENUMBER "1.3.3"
 #define PARKCLOSES 20
 #define PARKOPENS 7
 
@@ -215,7 +215,7 @@ byte accelInputValue = 1;            // Raw sensitivity input (0-9);
 byte accelSensitivity;               // Hex variable for sensitivity
 byte accelThreshold = 100;           // accelThreshold value to decide when the detected sound is a knock or not
 unsigned int debounce;               // This is a minimum debounce value - additional debounce set using pot or remote terminal
-volatile byte source;
+volatile boolean tapFlag;           // Set when there has been a tep
 
 // Battery monitor
 float stateOfCharge = 0;
@@ -332,7 +332,6 @@ void setup()
     
     Serial.print(F("Free memory: "));
     Serial.println(freeRam());
-
 }
 
 // Add loop code
@@ -561,42 +560,46 @@ void loop()
 }
 
 
-void CheckForBump() // This is where we check to see if an interrupt is set when not asleep
+void CheckForBump() // This is where we check to see if an interrupt is set when not asleep or act on a tap that woke the Arduino
 {
     if (digitalRead(INT2PIN)==0)    // If int2 goes LOW, either p/l has changed or there's been a single/double tap
     {
+        Serial.println("Int2Pin is low!");
         TakeTheBus();
-            source = readRegister(0x0C);  // Read the interrupt source reg.
+            byte source = readRegister(0x0C);  // Read the interrupt source reg.
             readRegister(0x22);  // Reads the PULSE_SRC register to reset it
         GiveUpTheBus();
-        if ((source & 0x08)==0x08) { // We are only interested in the TAP register so read that
-            if (millis() >= lastBump + debounce) {
-                TakeTheBus();
-                    t = RTC.get();
-                GiveUpTheBus();
-                if (HOURLYPERIOD != currentHourlyPeriod) {
-                    LogHourlyEvent(t);
-                }
-                if (DAILYPERIOD != currentDailyPeriod) {
-                    LogDailyEvent(t);
-                }
-                hourlyPersonCount++;                    // Increment the PersonCount
-                FRAMwrite16(CURRENTHOURLYCOUNTADDR, hourlyPersonCount);  // Load Hourly Count to memory
-                dailyPersonCount++;                    // Increment the PersonCount
-                FRAMwrite16(CURRENTDAILYCOUNTADDR, dailyPersonCount);   // Load Daily Count to memory
-                FRAMwrite32(CURRENTCOUNTSTIME, t);   // Write to FRAM - this is so we know when the last counts were saved
-                lastBump = millis();              // Reset last bump timer
-                Serial.print(F("Hourly: "));
-                Serial.print(hourlyPersonCount);
-                Serial.print(F(" Daily: "));
-                Serial.print(dailyPersonCount);
-                Serial.print(F("  Time: "));
-                PrintTimeDate(t);
-                ledState = !ledState;              // toggle the status of the LEDPIN:
-                digitalWrite(REDLED, ledState);    // update the LED pin itself
-            }
+        if ((source & 0x08)==0x08 && millis() >= lastBump + debounce) { // We are only interested in the TAP register and ignore debounced taps
+            tapFlag = true;     // Was a Tap and outside of debounce time
         }
-        source = 0;  // Clear the source variable for next time
+        else tapFlag = false;   // Was not a Tap or was within debounce time
+    }
+    if (tapFlag)
+    {
+        tapFlag = false;        // Reset tap Flag for next time
+        lastBump = millis();    // Reset last bump timer
+        TakeTheBus();
+            t = RTC.get();
+        GiveUpTheBus();
+        if (HOURLYPERIOD != currentHourlyPeriod) {
+            LogHourlyEvent(t);
+        }
+        if (DAILYPERIOD != currentDailyPeriod) {
+            LogDailyEvent(t);
+        }
+        hourlyPersonCount++;                    // Increment the PersonCount
+        FRAMwrite16(CURRENTHOURLYCOUNTADDR, hourlyPersonCount);  // Load Hourly Count to memory
+        dailyPersonCount++;                    // Increment the PersonCount
+        FRAMwrite16(CURRENTDAILYCOUNTADDR, dailyPersonCount);   // Load Daily Count to memory
+        FRAMwrite32(CURRENTCOUNTSTIME, t);   // Write to FRAM - this is so we know when the last counts were saved
+        Serial.print(F("Hourly: "));
+        Serial.print(hourlyPersonCount);
+        Serial.print(F(" Daily: "));
+        Serial.print(dailyPersonCount);
+        Serial.print(F("  Time: "));
+        PrintTimeDate(t);
+        ledState = !ledState;              // toggle the status of the LEDPIN:
+        digitalWrite(REDLED, ledState);    // update the LED pin itself
     }
 }
 
@@ -626,14 +629,14 @@ void StartStopTest(boolean startTest)  // Since the test can be started from the
             LogHourlyEvent(t);
         }
         TakeTheBus();
-            source = readRegister(0x22);     // Reads the PULSE_SRC register to reset it
+            readRegister(0x22);     // Reads the PULSE_SRC register to reset it
         GiveUpTheBus();
         Serial.println(F("Test Started"));
     }
     else {
         inTest = false;
         TakeTheBus();
-            source = readRegister(0x22);  // Reads the PULSE_SRC register to reset it
+            readRegister(0x22);  // Reads the PULSE_SRC register to reset it
             t = RTC.get();
         GiveUpTheBus();
         FRAMwrite16(CURRENTDAILYCOUNTADDR, dailyPersonCount);   // Load Daily Count to memory
@@ -865,6 +868,14 @@ void WakeUpNow()        // Sensor Interrupt Handler
     // just want the thing to wake up
     sleep_disable();         // first thing after waking from sleep is to disable sleep...
     detachInterrupt(digitalPinToInterrupt(INT2PIN));      // disables interrupt
+    TakeTheBus();
+        byte source = readRegister(0x0C);  // Read the interrupt source reg.
+        readRegister(0x22);  // Reads the PULSE_SRC register to reset it
+    GiveUpTheBus();
+    if ((source & 0x08)==0x08) { // We are only interested in the TAP register so read that
+        tapFlag = true;
+    }
+    else tapFlag = false;
 }
 
 void sleepNow()         // here we put the arduino to sleep
@@ -888,6 +899,20 @@ void sleepNow()         // here we put the arduino to sleep
      * sleep mode: SLEEP_MODE_PWR_DOWN
      *
      */
+    TakeTheBus();       // Make sure the interrupt flag is cleared before we attach it
+        byte c = readRegister(0x0D);  // Read WHO_AM_I register to make sure the i2c bus is functioning before we go to sleep
+        if (c == 0x2A) // WHO_AM_I should always be 0x2A
+        {
+            readRegister(0x22);  // Reads the PULSE_SRC register to reset it
+        }
+        else
+        {
+            lastBump = millis();              // Reset last bump timer to give us a couple more secs for the i2c bus to clear
+            Serial.println("Could not read i2c data, not going to sleep");
+            return;         // Get out of this routine
+        }
+    GiveUpTheBus();
+    
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);   // sleep mode is set here
     
     sleep_enable();          // enables the sleep bit in the mcucr register
@@ -912,18 +937,6 @@ void sleepNow()         // here we put the arduino to sleep
      *
      * In all but the IDLE sleep modes only LOW can be used.
      */
-    TakeTheBus();       // Make sure the interrupt flag is cleared before we attach it
-        byte c = readRegister(0x0D);  // Read WHO_AM_I register to make sure the i2c bus is functioning before we go to sleep
-        if (c == 0x2A) // WHO_AM_I should always be 0x2A
-        {
-            readRegister(0x22);  // Reads the PULSE_SRC register to reset it
-        }
-        else
-        {
-            lastBump = millis();              // Reset last bump timer to give us a couple more secs for the i2c bus to clear
-        }
-    GiveUpTheBus();
-    
     attachInterrupt(digitalPinToInterrupt(INT2PIN),WakeUpNow, LOW); // use interrupt and run function
     
     sleep_mode();            // here the device is actually put to sleep!!
